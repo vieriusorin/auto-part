@@ -1,5 +1,9 @@
 {
-  "android": {
-    "package": "com.anonymous.autocaremobile"
+  "expo": {
+    "name": "AutoCare Mobile",
+    "slug": "autocare-mobile",
+    "android": {
+      "package": "com.anonymous.autocaremobile"
+    }
   }
 }
