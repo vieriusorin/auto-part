@@ -1,0 +1,21 @@
+---
+description: Auto-run NativeWind review workflow on React Native UI changes
+globs: src/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Auto Review for NativeWind UI
+
+When editing UI files in this scope:
+
+- Automatically apply `nativewind-guidelines` during implementation/review.
+- If file uses NativeWind patterns (`className`, token classes, variant maps), run `nativewind-reviewer` after edits.
+- For major UI work, also run `accessibility-auditor` and `design-system-enforcer`.
+- If the change is substantial, run `yg-quality-gate`.
+
+## Review expectations
+
+- Use `className` for static styles and `style` only for dynamic values.
+- Prefer shared wrappers in `src/components/ui/*` before raw primitives.
+- Use i18n keys for user-visible strings.
+- Flag hardcoded token-replaceable hex colors as blockers.

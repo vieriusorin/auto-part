@@ -1,0 +1,36 @@
+{
+  "name": "autocare",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "npm@11.11.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "lint:unsafe": "biome check --write --unsafe .",
+    "lint:turbo": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "verify": "npm run typecheck && npm run lint",
+    "db:generate": "npm run db:generate -w @autocare/db",
+    "db:migrate": "npm run db:migrate -w @autocare/db",
+    "db:start": "docker compose up -d postgres",
+    "db:stop": "docker compose stop postgres",
+    "db:down": "docker compose down",
+    "db:down:volumes": "docker compose down -v",
+    "db:reset:phase0": "npm run db:reset:phase0 -w @autocare/server",
+    "db:seed:phase0": "npm run db:seed:phase0 -w @autocare/server",
+    "db:bootstrap:phase0": "npm run db:migrate && npm run db:reset:phase0 && npm run db:seed:phase0",
+    "phase0:verify:local": "npm run phase0:integrity-gate -w @autocare/server && npm run phase0:gate -w @autocare/server",
+    "db:from-scratch:phase0": "npm run db:down:volumes && npm run db:start && npm run db:bootstrap:phase0 && npm run phase0:verify:local"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.12",
+    "turbo": "^2.0.0",
+    "typescript": "^5.7.0"
+  }
+}

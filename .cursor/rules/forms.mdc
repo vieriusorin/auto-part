@@ -1,0 +1,19 @@
+---
+description: React Hook Form patterns for Autocare
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Forms
+
+- Use React Hook Form v7 with `Controller` for custom inputs.
+- Set `mode: 'onChange'` in `useForm`.
+- Use inline manual validation in `rules`.
+- Define form types with `type` aliases.
+- Keep validation messages i18n-aware.
+
+## Do not use
+
+- `register()` on custom components.
+- Schema resolvers for form validation (`zodResolver`, Yup resolver).
+- `mode: 'onBlur'` or `mode: 'onSubmit'` for standard Autocare forms.

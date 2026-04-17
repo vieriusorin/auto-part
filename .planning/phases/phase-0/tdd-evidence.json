@@ -1,0 +1,41 @@
+{
+  "tasks": [
+    {
+      "task_id": "task-1",
+      "test_files": [
+        "apps/server/src/modules/analytics/__tests__/analytics-contract.test.ts",
+        "apps/server/src/modules/analytics/__tests__/analytics-rollups.test.ts"
+      ],
+      "red_command": "npm run test:vitest -w @autocare/server -- analytics-contract analytics-rollups",
+      "red_summary": "FAILED - Cannot find module ../service.js and ../rollups.js",
+      "green_command": "npm run test:vitest -w @autocare/server -- analytics-contract analytics-rollups",
+      "green_summary": "PASSED - 2 files, 3 tests",
+      "coverage_delta": "analytics modules covered in test:coverage output"
+    },
+    {
+      "task_id": "task-2",
+      "test_files": [
+        "apps/server/src/modules/trust/__tests__/consent-lifecycle.test.ts",
+        "apps/server/src/modules/trust/__tests__/consent-export-delete.test.ts",
+        "apps/server/src/modules/trust/__tests__/audit-append-only.test.ts"
+      ],
+      "red_command": "npm run test:vitest -w @autocare/server -- consent-lifecycle consent-export-delete audit-append-only",
+      "red_summary": "FAILED - Cannot find module consent-service.js and audit-service.js",
+      "green_command": "npm run test:vitest -w @autocare/server -- consent-lifecycle consent-export-delete audit-append-only",
+      "green_summary": "PASSED - 3 files, 3 tests",
+      "coverage_delta": "trust service modules covered in test:coverage output"
+    },
+    {
+      "task_id": "task-3",
+      "test_files": [
+        "apps/server/src/modules/trust/__tests__/trust-policy-bypass.test.ts",
+        "apps/server/src/modules/trust/__tests__/trust-policy-audit.test.ts"
+      ],
+      "red_command": "npm run test:vitest -w @autocare/server -- trust-policy-bypass trust-policy-audit",
+      "red_summary": "FAILED - Cannot find module policy-guards.js and denial-audit-emitter.js",
+      "green_command": "npm run test:vitest -w @autocare/server -- trust-policy-bypass trust-policy-audit",
+      "green_summary": "PASSED - 2 files, 2 tests",
+      "coverage_delta": "policy guard and denial audit modules covered in test:coverage output"
+    }
+  ]
+}

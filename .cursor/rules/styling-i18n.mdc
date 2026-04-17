@@ -1,0 +1,18 @@
+---
+description: NativeWind-first styling and i18n guardrails
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Styling and i18n
+
+- Prefer `className` with NativeWind utilities.
+- Use NativeWind theme tokens/classes instead of hardcoded hex values.
+- Use `style` only for truly dynamic or computed values.
+- Keep user-facing text translated via i18next keys.
+- Default assumptions should support Romanian fallback behavior.
+
+## Avoid
+
+- Hardcoded UI labels/messages in JSX.
+- Hardcoded color literals when token equivalents exist.

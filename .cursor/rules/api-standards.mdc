@@ -1,0 +1,21 @@
+---
+description: API integration standards for TanStack Query and openapi-fetch
+globs: src/api/**/*.ts
+alwaysApply: false
+---
+
+# API Standards
+
+- Use `fetchClient()` as the API client entrypoint.
+- Implement API access through TanStack Query hooks, not ad-hoc fetch calls.
+- Place hooks in domain files (`queries.ts`, `mutations.ts`).
+- Maintain domain query key factories (`query-keys.ts`).
+- Prefer strongly typed request/response contracts.
+- Handle nullable dependencies with query `enabled` guards.
+- Keep auth/token behavior in middleware, not in UI code.
+
+## Anti-patterns
+
+- No Apollo/GraphQL client usage.
+- No direct `fetch(url)` for app API domains.
+- No scattered query keys inline across components.

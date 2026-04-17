@@ -1,0 +1,20 @@
+---
+description: Auto-run Vitest review workflow on test-related changes
+globs: **/*.{test,spec}.{ts,tsx,js,jsx},**/vitest.config.{ts,js,mts,mjs},**/vite.config.{ts,js,mts,mjs}
+alwaysApply: false
+---
+
+# Auto Review for Vitest
+
+When editing files matched by this rule:
+
+- Automatically apply `vitest-guidelines` before making or reviewing changes.
+- After edits, run `vitest-reviewer` on changed files in scope.
+- If changes are substantial, also run `yg-quality-gate`.
+
+## Review expectations
+
+- Prefer deterministic tests (no flaky timing/order dependencies).
+- Ensure mocks are reset/restored and async work is awaited.
+- Flag committed `it.only`/`describe.only` as blockers.
+- Cover error and edge paths, not only happy paths.

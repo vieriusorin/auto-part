@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "powershell -ExecutionPolicy Bypass -File .cursor/hooks/typecheck-lint-after-edit.ps1",
+        "timeout": 180,
+        "failClosed": false
+      }
+    ],
+    "stop": [
+      {
+        "command": "powershell -ExecutionPolicy Bypass -File .cursor/hooks/require-review-on-stop.ps1",
+        "timeout": 20,
+        "loop_limit": 5,
+        "failClosed": false
+      }
+    ]
+  }
+}

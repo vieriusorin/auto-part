@@ -1,0 +1,56 @@
+---
+description: Autocare mobile stack and hard constraints
+globs:
+alwaysApply: true
+---
+
+# Autocare Stack (Canonical)
+
+This repository is a React Native mobile app, not a web app.
+
+## Core stack
+
+- React Native 0.79 + Expo 53 (managed workflow)
+- NativeWind (Tailwind-style utilities for React Native)
+- TanStack Query v5 + openapi-fetch
+- React Hook Form + `Controller` + manual validation rules
+- Zustand for global state
+- React Navigation v7
+- i18next + react-i18next (Romanian fallback)
+
+## Code style constraints
+
+- Prefer `type` over `interface`
+- Never use `any` unless explicitly justified
+- Avoid enums, use union types or const maps
+- Use async/await with try/catch
+- Component files and component symbols use PascalCase
+- Non-component files/folders use kebab-case
+- For React components, use arrow functions
+- Use single quotes for strings; use backticks only for template literals with interpolation
+
+## Do not generate
+
+- Next.js or web-only patterns (`'use client'`, React Router DOM, MUI)
+- Apollo/GraphQL clients for API fetching
+- Yup/Zod form schema validation for RHF forms
+- `register()` usage on custom form inputs (use `Controller`)
+- Hardcoded user-visible strings in UI
+- Hardcoded hex color values when tokens exist
+- Direct `fetch(url)` for app API calls
+
+## API and data layer rules
+
+- Use `fetchClient()` from `src/api/http-client/http-client.ts`
+- Use TanStack Query hooks in domain query/mutation files
+- Use query key factories per domain
+- Guard nullable query params with `enabled: !!dep`
+
+## i18n and UI
+
+- Every user-visible string must use i18n keys
+- Prefer shared UI primitives first:
+  1. `src/components/ui/*`
+  2. `src/components/common/*`
+  3. React Native core primitives when no shared wrapper exists
+- Prefer `className` with NativeWind; use `style` only for dynamic/computed styles

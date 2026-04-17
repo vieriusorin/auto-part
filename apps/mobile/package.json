@@ -1,0 +1,30 @@
+{
+  "name": "@autocare/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "expo start",
+    "build": "echo \"Use EAS build\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo \"no lint configured\"",
+    "mobile:android:build": "expo build:android",
+    "mobile:ios:build": "expo build:ios",
+    "mobile:android": "expo run:android",
+    "mobile:ios": "expo run:ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
+  },
+  "dependencies": {
+    "@autocare/shared": "0.1.0",
+    "expo": "^53.0.0",
+    "expo-image-manipulator": "^13.0.5",
+    "expo-router": "^4.0.0",
+    "react": "^18.3.1",
+    "react-native": "^0.76.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "typescript": "^5.7.0"
+  }
+}

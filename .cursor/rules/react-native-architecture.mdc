@@ -1,0 +1,25 @@
+---
+description: React Native architecture and navigation conventions
+globs: src/**/*.tsx
+alwaysApply: false
+---
+
+# React Native Architecture
+
+- Prefer functional components with arrow function syntax.
+- Keep screens feature-oriented and compose from shared UI primitives.
+- Never use web router APIs (`react-router-dom`).
+- Use React Navigation v7 patterns and typed navigation params.
+- Keep auth-gated navigation split by app state (logged out/onboarding/logged in).
+- Keep business logic in hooks/services instead of large screen components.
+
+## State boundaries
+
+- Local UI state: component state.
+- Server state: TanStack Query.
+- Global cross-feature state: Zustand only.
+
+## Platform awareness
+
+- Ensure iOS/Android behavior parity for interactive flows.
+- Use safe area and touch target best practices for mobile interactions.
