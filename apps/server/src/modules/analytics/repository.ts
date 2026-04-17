@@ -1,8 +1,13 @@
 import { and, eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { createSelectSchema } from 'drizzle-zod'
 import { Pool } from 'pg'
+import type { z } from 'zod'
+import { loadServerEnv } from '../../config/load-env.js'
 import type { NormalizedAnalyticsEvent } from './schemas.js'
+
+loadServerEnv()
 
 const analyticsEventsRaw = pgTable('analytics_events_raw', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -46,27 +51,11 @@ const analyticsUserCohorts = pgTable('analytics_user_cohorts', {
   channel: text('channel').notNull(),
 })
 
-export type PersistedRollupRow = {
-  date: string
-  country: string
-  platform: 'ios' | 'android'
-  channel: string
-  activationCount: number
-  d1Retained: number
-  d7Retained: number
-  d30Retained: number
-  wau: number
-  mau: number
-  maintenanceActionsCompleted: number
-}
+const analyticsDailyRollupSchema = createSelectSchema(analyticsDailyRollups)
+const analyticsUserCohortSchema = createSelectSchema(analyticsUserCohorts)
 
-export type PersistedCohortRow = {
-  userId: string
-  signupDate: string
-  country: string
-  platform: 'ios' | 'android'
-  channel: string
-}
+export type PersistedRollupRow = Omit<z.infer<typeof analyticsDailyRollupSchema>, 'id'>
+export type PersistedCohortRow = Omit<z.infer<typeof analyticsUserCohortSchema>, 'id'>
 
 type SegmentFilter = {
   country?: string
@@ -123,6 +112,9 @@ const inMemoryStorage: AnalyticsStorage = {
 const isTestRuntime = (): boolean =>
   process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
 
+const shouldRequireDatabaseUrl = (): boolean =>
+  process.env.NODE_ENV === 'production' || process.env.ANALYTICS_STORAGE === 'db'
+
 const createDbStorage = (): AnalyticsStorage => {
   if (isTestRuntime()) {
     return inMemoryStorage
@@ -130,7 +122,15 @@ const createDbStorage = (): AnalyticsStorage => {
 
   const databaseUrl = process.env.DATABASE_URL
   if (databaseUrl === undefined || databaseUrl.trim().length === 0) {
-    throw new Error('DATABASE_URL is required for analytics storage runtime path')
+    if (shouldRequireDatabaseUrl()) {
+      throw new Error('DATABASE_URL is required for analytics storage runtime path')
+    }
+
+    // In local development we allow a memory fallback to keep the API runnable.
+    console.warn(
+      '[analytics] DATABASE_URL missing, using in-memory analytics storage. Set ANALYTICS_STORAGE=db to enforce DB mode.',
+    )
+    return inMemoryStorage
   }
 
   const pool = new Pool({ connectionString: databaseUrl })

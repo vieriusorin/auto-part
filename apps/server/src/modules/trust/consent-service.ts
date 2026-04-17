@@ -1,8 +1,13 @@
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { createSelectSchema } from 'drizzle-zod'
 import { Pool } from 'pg'
+import type { z } from 'zod'
+import { loadServerEnv } from '../../config/load-env.js'
 import { appendTrustAuditEvent } from './audit-service.js'
+
+loadServerEnv()
 
 const consentLedger = pgTable('consent_ledger', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -18,15 +23,12 @@ const consentLedger = pgTable('consent_ledger', {
 
 type ConsentStatus = 'granted' | 'revoked' | 'expired'
 
-type ConsentEntry = {
-  id: string
-  userId: string
-  consentType: string
+const consentLedgerSelectSchema = createSelectSchema(consentLedger)
+type ConsentLedgerRow = z.infer<typeof consentLedgerSelectSchema>
+type ConsentEntry = Omit<ConsentLedgerRow, 'captureSource' | 'createdAt'> & {
   status: ConsentStatus
   legalBasis: 'consent' | 'legitimate_interest'
-  policyVersion: string
   source: 'app' | 'api' | 'admin'
-  requestId: string
   createdAt: string
 }
 
