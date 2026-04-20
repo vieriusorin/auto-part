@@ -108,13 +108,12 @@ describe('analytics acceptance wiring', () => {
 
     expect(batchResponse.status).toBe(202)
     expect(dashboardResponse.status).toBe(200)
-    expect(Array.isArray(dashboardResponse.body.items)).toBe(true)
-    expect(dashboardResponse.body.items.length).toBeGreaterThan(0)
+    type RoRow = { activationCount: number; maintenanceActionsCompleted: number }
+    const roItems = dashboardResponse.body.data?.items as RoRow[] | undefined
+    expect(Array.isArray(roItems)).toBe(true)
+    expect(roItems!.length).toBeGreaterThan(0)
     expect(
-      dashboardResponse.body.items.some(
-        (item: { activationCount: number; maintenanceActionsCompleted: number }) =>
-          item.activationCount > 0 && item.maintenanceActionsCompleted > 0,
-      ),
+      roItems!.some((item) => item.activationCount > 0 && item.maintenanceActionsCompleted > 0),
     ).toBe(true)
 
     const iosAdsRows = await request(app).get('/api/v1/analytics/dashboard').query({
@@ -123,12 +122,9 @@ describe('analytics acceptance wiring', () => {
       channel: 'ads',
     })
     expect(iosAdsRows.status).toBe(200)
-    expect(iosAdsRows.body.items.length).toBeGreaterThan(0)
-    expect(
-      iosAdsRows.body.items.some(
-        (item: { d7Retained: number; wau: number; mau: number }) =>
-          item.d7Retained > 0 && item.wau > 0 && item.mau > 0,
-      ),
-    ).toBe(true)
+    type DeRow = { d7Retained: number; wau: number; mau: number }
+    const deItems = iosAdsRows.body.data?.items as DeRow[] | undefined
+    expect(deItems!.length).toBeGreaterThan(0)
+    expect(deItems!.some((item) => item.d7Retained > 0 && item.wau > 0 && item.mau > 0)).toBe(true)
   })
 })

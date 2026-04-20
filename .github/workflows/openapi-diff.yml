@@ -1,0 +1,78 @@
+name: OpenAPI Contract Diff
+
+on:
+  pull_request:
+    paths:
+      - 'apps/server/**'
+      - 'packages/shared/**'
+      - 'apps/server/openapi.json'
+      - '.github/workflows/openapi-diff.yml'
+
+jobs:
+  openapi-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate OpenAPI from PR branch
+        working-directory: apps/server
+        run: npm run openapi:generate
+
+      - name: Copy PR spec
+        run: cp apps/server/openapi.json /tmp/openapi.pr.json
+
+      - name: Checkout base branch
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          git checkout origin/${{ github.base_ref }}
+
+      - name: Install dependencies (base branch)
+        run: npm ci
+
+      - name: Generate OpenAPI from base branch
+        working-directory: apps/server
+        run: npm run openapi:generate || echo '{}' > openapi.json
+
+      - name: Copy base spec
+        run: cp apps/server/openapi.json /tmp/openapi.base.json
+
+      - name: Run oasdiff for breaking changes
+        id: oasdiff
+        uses: oasdiff/oasdiff-action/breaking@v0.0.20
+        with:
+          base: /tmp/openapi.base.json
+          revision: /tmp/openapi.pr.json
+          fail-on-diff: true
+        continue-on-error: true
+
+      - name: Check PR for breaking bypass marker
+        if: steps.oasdiff.outcome == 'failure'
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          if echo "$TITLE" | grep -q "\[breaking\]"; then
+            echo "PR title contains [breaking] marker; bypassing breaking-change gate."
+            echo "Ensure info.version in packages/shared contracts has been bumped."
+          else
+            echo "Breaking OpenAPI changes detected without [breaking] marker in PR title."
+            echo "Either restore backwards-compatibility or add [breaking] to the PR title and bump the API version."
+            exit 1
+          fi
+
+      - name: Full diff summary (non-blocking)
+        uses: oasdiff/oasdiff-action/diff@v0.0.20
+        with:
+          base: /tmp/openapi.base.json
+          revision: /tmp/openapi.pr.json
+          format: text

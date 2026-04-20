@@ -1,18 +1,22 @@
 import { spawn } from 'node:child_process'
 import pino from 'pino'
 import type { GetHealthUseCase } from './application/system/get-health-use-case.js'
-import { loadServerEnv } from './config/load-env.js'
+import { loadServerConfig } from './config/load-env.js'
 import { createAppContainer } from './infrastructure/di/container.js'
 import { diTokens } from './infrastructure/di/tokens.js'
 import { createServer } from './interfaces/http/server.js'
 import { registerScheduledJobs } from './jobs/index.js'
+import { createAuthModule } from './modules/auth/auth-module.js'
 
-loadServerEnv()
+const config = loadServerConfig()
 
 const logger = pino({ name: 'autocare-api' })
-const container = createAppContainer()
+
+const authModule = await createAuthModule(config)
+const container = createAppContainer(authModule)
 const getHealthUseCase = container.get<GetHealthUseCase>(diTokens.getHealthUseCase)
-const app = createServer({ container, logger, getHealthUseCase })
+
+const app = createServer({ config, container, authModule, logger, getHealthUseCase })
 
 const openUrlInDefaultBrowser = (url: string): void => {
   try {
@@ -36,12 +40,11 @@ const openUrlInDefaultBrowser = (url: string): void => {
 
 registerScheduledJobs(logger)
 
-const port = Number(process.env.PORT ?? 4000)
-app.listen(port, () => {
-  logger.info(`API listening on port ${port}`)
-  const shouldOpenDocs = process.env.NODE_ENV !== 'production' && process.env.OPEN_API_DOCS !== 'false'
+app.listen(config.PORT, () => {
+  logger.info(`API listening on port ${config.PORT}`)
+  const shouldOpenDocs = config.NODE_ENV !== 'production' && config.OPEN_API_DOCS
   if (shouldOpenDocs) {
-    const docsUrl = `http://localhost:${port}/docs`
+    const docsUrl = `http://localhost:${config.PORT}/docs`
     logger.info(`Swagger docs: ${docsUrl}`)
     openUrlInDefaultBrowser(docsUrl)
   }

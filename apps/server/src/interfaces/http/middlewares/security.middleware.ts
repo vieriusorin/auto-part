@@ -1,6 +1,6 @@
+import type { RequestHandler } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import { slowDown } from 'express-slow-down'
-import type { RequestHandler } from 'express'
 import { validationResult } from 'express-validator'
 import { commonPresenter } from '../../../presenters/common.presenter.js'
 

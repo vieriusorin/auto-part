@@ -20,6 +20,9 @@
 - **MVP-05**: User sees a basic 3-6 month maintenance cost outlook.
 - **MVP-06**: Mobile app uses Better Auth + Express protected endpoints with persisted authenticated session behavior.
 - **MVP-07**: User can upload maintenance artifacts with signed R2 URL flow and view report output via Next.js viewer.
+- **MVP-08**: User can attach media-first evidence (photos/documents) directly to vehicle timeline events with searchable metadata.
+- **MVP-09**: Organization supports per-vehicle role assignments (`owner/manager/driver/viewer`) for family and micro-fleet collaboration.
+- **MVP-10**: Product analytics captures entry-friction metrics (time-to-first-log, first-log completion rate, reminder completion by persona).
 
 ### Subscription Layer
 - **SUB-01**: Premium plan provides advanced forecasting depth and multi-vehicle workflows.
@@ -53,6 +56,9 @@
 | MVP-05 | Phase 1 | Pending |
 | MVP-06 | Phase 1 | Pending |
 | MVP-07 | Phase 1 | Pending |
+| MVP-08 | Phase 1 | Pending |
+| MVP-09 | Phase 1 | Pending |
+| MVP-10 | Phase 1 | Pending |
 | SUB-01 | Phase 2 | Pending |
 | SUB-02 | Phase 2 | Pending |
 | SUB-03 | Phase 2 | Pending |

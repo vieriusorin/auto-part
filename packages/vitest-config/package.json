@@ -1,0 +1,17 @@
+{
+  "name": "@autocare/vitest-config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./node.ts",
+  "exports": {
+    "./node": {
+      "types": "./node.ts",
+      "import": "./node.ts",
+      "default": "./node.ts"
+    }
+  },
+  "devDependencies": {
+    "vitest": "^4.1.4"
+  }
+}

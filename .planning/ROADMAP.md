@@ -7,7 +7,7 @@
 
 ## Phases
 - [x] **Phase 0: Instrumentation + Trust Baseline** - Establish measurable funnels, consent evidence, and integrity primitives before feature scaling.
-- [ ] **Phase 1: MVP PMF Probe (Maintenance Loop)** - Deliver the core maintenance workflow that drives repeat user value.
+- [ ] **Phase 1: MVP PMF Probe (Maintenance Loop)** - Deliver the core maintenance workflow that drives repeat user value. *(Execution started: auth stack + clients; maintenance loop deliverables still open.)*
 - [ ] **Phase 2: Subscription Fit** - Add paid depth only after retention proof and protect free-tier health.
 - [ ] **Phase 3: Trust-Safe Affiliate Layer** - Introduce high-intent partner monetization with explicit disclosure and consent-safe attribution.
 - [ ] **Phase 4: Optional Ads Fallback** - Run reversible, low-density ad tests only if they do not damage retention or trust.
@@ -39,11 +39,13 @@
 ### Phase 1: MVP PMF Probe (Maintenance Loop)
 **Goal**: Users repeatedly use AutoCare to plan and complete maintenance, reducing surprise-cost anxiety.  
 **Depends on**: Phase 0  
-**Requirements**: MVP-01, MVP-02, MVP-03, MVP-04, MVP-05, MVP-06, MVP-07  
+**Requirements**: MVP-01, MVP-02, MVP-03, MVP-04, MVP-05, MVP-06, MVP-07, MVP-08, MVP-09, MVP-10  
 **Deliverables**:
 - Expo mobile flows for vehicle profile, service history timeline, reminders (time + mileage), and action feed (`do now / plan / defer`).
 - Basic 3-6 month maintenance budget forecast with clear explanation of recommendation urgency.
 - Authenticated API/data path using Better Auth + Express + Drizzle and R2 signed uploads for maintenance artifacts.
+- Media-first history endpoints/flows for timeline evidence (photo/document attachments with metadata).
+- Per-vehicle household/micro-fleet role assignments (`owner/manager/driver/viewer`) with organization guardrails.
 - Minimal Next.js read-only viewer for signed/shareable maintenance report output.
 **KPI Exit Criteria**:
 - Activation >=35% (`vehicle + first maintenance item + reminder in 24h`).
@@ -55,6 +57,7 @@
 - No hard paywall or ad placement in core loop.
 - Hold phase if recommendation quality or trust feedback drives retention decline.
 - Keep scope constrained; defer realtime and advanced offline conflict UX.
+- Track and review entry-friction metrics (time-to-first-log, first-log completion, reminder completion) before phase exit.
 **Success Criteria** (what must be TRUE):
 1. User can set up a vehicle and receive maintenance reminders with actionable next steps.
 2. User can understand near-term maintenance cost outlook and why an action is prioritized.
@@ -136,7 +139,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 0. Instrumentation + Trust Baseline | 1/1 | Complete | 2026-04-17 |
-| 1. MVP PMF Probe (Maintenance Loop) | 0/1 | Not started | - |
+| 1. MVP PMF Probe (Maintenance Loop) | 1/1 | In progress (window 1 executed: `.planning/phases/phase-1/EXECUTION.md`; reminders/forecast/viewer still pending) | - |
 | 2. Subscription Fit | 0/1 | Not started | - |
 | 3. Trust-Safe Affiliate Layer | 0/1 | Not started | - |
 | 4. Optional Ads Fallback | 0/1 | Not started | - |

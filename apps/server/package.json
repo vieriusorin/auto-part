@@ -14,17 +14,22 @@
     "test:coverage": "vitest run --coverage",
     "phase0:integrity-gate": "tsx scripts/phase0-integrity-gate.ts",
     "phase0:gate": "tsx scripts/phase0-gate.ts",
-    "db:reset:phase0": "tsx scripts/db-reset-phase0.ts",
-    "db:seed:phase0": "tsx scripts/db-seed-phase0.ts"
+    "db:reset": "tsx scripts/db-reset.ts",
+    "db:seed": "tsx scripts/db-seed.ts",
+    "openapi:generate": "tsx scripts/generate-openapi.ts"
   },
   "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^8.5.0",
     "@autocare/auth": "0.1.0",
+    "@autocare/config": "0.1.0",
     "@autocare/db": "0.1.0",
     "@autocare/shared": "0.1.0",
+    "@faker-js/faker": "^10.4.0",
+    "argon2": "^0.44.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "drizzle-orm": "^0.45.2",
+    "drizzle-orm": "0.45.2",
     "drizzle-zod": "^0.8.3",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
@@ -44,6 +49,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@autocare/vitest-config": "0.1.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
@@ -56,7 +62,7 @@
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
     "@vitest/coverage-v8": "^4.1.4",
-    "drizzle-kit": "^0.30.6",
+    "drizzle-kit": "^0.31.10",
     "supertest": "^7.2.2",
     "tsx": "^4.21.0",
     "typescript": "~5.9.2",

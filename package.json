@@ -10,6 +10,9 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
+    "openapi:sync": "npm run openapi:generate -w @autocare/server && npm run generate:types -w @autocare/api-client",
+    "dev:web-stack": "npm run openapi:sync && turbo run dev --parallel --filter=@autocare/server --filter=@autocare/web",
+    "dev:stack": "npm run openapi:sync && turbo run dev --parallel --filter=@autocare/server --filter=@autocare/web --filter=@autocare/mobile",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "lint:unsafe": "biome check --write --unsafe .",
@@ -22,15 +25,15 @@
     "db:stop": "docker compose stop postgres",
     "db:down": "docker compose down",
     "db:down:volumes": "docker compose down -v",
-    "db:reset:phase0": "npm run db:reset:phase0 -w @autocare/server",
-    "db:seed:phase0": "npm run db:seed:phase0 -w @autocare/server",
-    "db:bootstrap:phase0": "npm run db:migrate && npm run db:reset:phase0 && npm run db:seed:phase0",
+    "db:reset": "npm run db:reset -w @autocare/server",
+    "db:seed": "npm run db:seed -w @autocare/server",
+    "db:bootstrap": "npm run db:migrate && npm run db:reset && npm run db:seed",
     "phase0:verify:local": "npm run phase0:integrity-gate -w @autocare/server && npm run phase0:gate -w @autocare/server",
-    "db:from-scratch:phase0": "npm run db:down:volumes && npm run db:start && npm run db:bootstrap:phase0 && npm run phase0:verify:local"
+    "db:from-scratch": "npm run db:down:volumes && npm run db:start && npm run db:bootstrap && npm run phase0:verify:local"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
-    "turbo": "^2.0.0",
+    "turbo": "^2.9.6",
     "typescript": "~5.9.2"
   }
 }

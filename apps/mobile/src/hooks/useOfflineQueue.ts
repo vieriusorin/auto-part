@@ -1,21 +1,41 @@
+import { useSyncActions } from '@autocare/api-client/react'
+import { useRef } from 'react'
+
 type OfflineAction = {
   id: string
   type: string
   payload: Record<string, unknown>
 }
 
-const queue: OfflineAction[] = []
-
 export const useOfflineQueue = () => {
+  const queueRef = useRef<OfflineAction[]>([])
+  const syncMutation = useSyncActions()
+
   const enqueue = (action: OfflineAction) => {
-    queue.push(action)
+    queueRef.current.push(action)
   }
 
-  const flush = async () => {
-    const count = queue.length
-    queue.length = 0
-    return count
+  const flush = async (): Promise<number> => {
+    const actions = [...queueRef.current]
+    if (actions.length === 0) {
+      return 0
+    }
+
+    try {
+      const result = await syncMutation.mutateAsync({ actions })
+      queueRef.current = []
+      return result.synced ?? actions.length
+    } catch {
+      return 0
+    }
   }
 
-  return { enqueue, flush, size: queue.length }
+  return {
+    enqueue,
+    flush,
+    get size() {
+      return queueRef.current.length
+    },
+    isSyncing: syncMutation.isPending,
+  }
 }
