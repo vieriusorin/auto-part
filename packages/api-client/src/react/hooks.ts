@@ -53,10 +53,25 @@ type VehicleList = SuccessData<operations['listVehicles']>
 type VehicleDetail = SuccessData<operations['getVehicle']>
 type VehicleCreated = SuccessData<operations['createVehicle']>
 type MaintenanceList = SuccessData<operations['listMaintenanceLogs']>
+type ReminderList = SuccessData<operations['listVehicleReminders']>
+type ReminderCreated = SuccessData<operations['createVehicleReminder']>
+type ReminderUpdated = SuccessData<operations['updateVehicleReminder']>
+type ActionFeedList = SuccessData<operations['getVehicleActionFeed']>
+type VehicleForecast = SuccessData<operations['getVehicleForecast']>
+type VehicleDocuments = SuccessData<operations['listVehicleDocuments']>
+type VehicleDocumentCreated = SuccessData<operations['createVehicleDocument']>
+type VehicleMembers = SuccessData<operations['listVehicleMembers']>
+type VehicleMemberUpserted = SuccessData<operations['upsertVehicleMember']>
 type FuelList = SuccessData<operations['listFuelEntries']>
 type BannerList = SuccessData<operations['listBanners']>
 type BannerDismissResult = SuccessData<operations['dismissBanner']>
 type SpendKpis = SuccessData<operations['getSpendKpis']>
+type SubscriptionStatus = SuccessData<operations['getSubscriptionStatus']>
+type SubscriptionOffers = SuccessData<operations['listSubscriptionOffers']>
+type StartedTrial = SuccessData<operations['startSubscriptionTrial']>
+type CanceledSubscription = SuccessData<operations['cancelSubscription']>
+type CancelReasonsSummary = SuccessData<operations['listSubscriptionCancelReasons']>
+type SubscriptionRetentionSummary = SuccessData<operations['getSubscriptionRetentionSummary']>
 
 export const useVehicles = (
   options?: Omit<UseQueryOptions<VehicleList>, 'queryKey' | 'queryFn'>,
@@ -111,6 +126,101 @@ export const useVehicleMaintenanceLogs = (
   })
 }
 
+export const useVehicleReminders = (
+  vehicleId: string | undefined,
+  options?: Omit<UseQueryOptions<ReminderList>, 'queryKey' | 'queryFn'>,
+) => {
+  const client = useApiClient()
+  return useQuery<ReminderList>({
+    ...options,
+    queryKey: queryKeys.vehicles.reminders(vehicleId ?? ''),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/vehicles/{id}/reminders', {
+        params: { path: { id: vehicleId ?? '' } },
+      })
+      if (error) throw error
+      return unwrap<ReminderList>(data)
+    },
+    enabled: Boolean(vehicleId) && (options?.enabled ?? true),
+  })
+}
+
+export const useVehicleActionFeed = (
+  vehicleId: string | undefined,
+  options?: Omit<UseQueryOptions<ActionFeedList>, 'queryKey' | 'queryFn'>,
+) => {
+  const client = useApiClient()
+  return useQuery<ActionFeedList>({
+    ...options,
+    queryKey: queryKeys.vehicles.actionFeed(vehicleId ?? ''),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/vehicles/{id}/action-feed', {
+        params: { path: { id: vehicleId ?? '' } },
+      })
+      if (error) throw error
+      return unwrap<ActionFeedList>(data)
+    },
+    enabled: Boolean(vehicleId) && (options?.enabled ?? true),
+  })
+}
+
+export const useVehicleForecast = (
+  vehicleId: string | undefined,
+  options?: Omit<UseQueryOptions<VehicleForecast>, 'queryKey' | 'queryFn'>,
+) => {
+  const client = useApiClient()
+  return useQuery<VehicleForecast>({
+    ...options,
+    queryKey: queryKeys.vehicles.forecast(vehicleId ?? ''),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/vehicles/{id}/forecast', {
+        params: { path: { id: vehicleId ?? '' } },
+      })
+      if (error) throw error
+      return unwrap<VehicleForecast>(data)
+    },
+    enabled: Boolean(vehicleId) && (options?.enabled ?? true),
+  })
+}
+
+export const useVehicleDocuments = (
+  vehicleId: string | undefined,
+  options?: Omit<UseQueryOptions<VehicleDocuments>, 'queryKey' | 'queryFn'>,
+) => {
+  const client = useApiClient()
+  return useQuery<VehicleDocuments>({
+    ...options,
+    queryKey: [...queryKeys.vehicles.detail(vehicleId ?? ''), 'documents'],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/vehicles/{id}/documents', {
+        params: { path: { id: vehicleId ?? '' } },
+      })
+      if (error) throw error
+      return unwrap<VehicleDocuments>(data)
+    },
+    enabled: Boolean(vehicleId) && (options?.enabled ?? true),
+  })
+}
+
+export const useVehicleMembers = (
+  vehicleId: string | undefined,
+  options?: Omit<UseQueryOptions<VehicleMembers>, 'queryKey' | 'queryFn'>,
+) => {
+  const client = useApiClient()
+  return useQuery<VehicleMembers>({
+    ...options,
+    queryKey: [...queryKeys.vehicles.detail(vehicleId ?? ''), 'members'],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/vehicles/{id}/members', {
+        params: { path: { id: vehicleId ?? '' } },
+      })
+      if (error) throw error
+      return unwrap<VehicleMembers>(data)
+    },
+    enabled: Boolean(vehicleId) && (options?.enabled ?? true),
+  })
+}
+
 type SpendKpiFilters = {
   from: string
   to: string
@@ -132,6 +242,66 @@ export const useSpendKpis = (
       })
       if (error) throw error
       return unwrap<SpendKpis>(data)
+    },
+    ...options,
+  })
+}
+
+export const useSubscriptionStatus = (
+  options?: Omit<UseQueryOptions<SubscriptionStatus>, 'queryKey' | 'queryFn'>,
+) => {
+  const client = useApiClient()
+  return useQuery<SubscriptionStatus>({
+    queryKey: queryKeys.subscription.status(),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/subscription/status', {})
+      if (error) throw error
+      return unwrap<SubscriptionStatus>(data)
+    },
+    ...options,
+  })
+}
+
+export const useSubscriptionOffers = (
+  options?: Omit<UseQueryOptions<SubscriptionOffers>, 'queryKey' | 'queryFn'>,
+) => {
+  const client = useApiClient()
+  return useQuery<SubscriptionOffers>({
+    queryKey: queryKeys.subscription.offers(),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/subscription/offers', {})
+      if (error) throw error
+      return unwrap<SubscriptionOffers>(data)
+    },
+    ...options,
+  })
+}
+
+export const useSubscriptionCancelReasons = (
+  options?: Omit<UseQueryOptions<CancelReasonsSummary>, 'queryKey' | 'queryFn'>,
+) => {
+  const client = useApiClient()
+  return useQuery<CancelReasonsSummary>({
+    queryKey: queryKeys.subscription.cancelReasons(),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/subscription/cancel-reasons', {})
+      if (error) throw error
+      return unwrap<CancelReasonsSummary>(data)
+    },
+    ...options,
+  })
+}
+
+export const useSubscriptionRetentionSummary = (
+  options?: Omit<UseQueryOptions<SubscriptionRetentionSummary>, 'queryKey' | 'queryFn'>,
+) => {
+  const client = useApiClient()
+  return useQuery<SubscriptionRetentionSummary>({
+    queryKey: queryKeys.subscription.retentionSummary(),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/subscription/retention-summary', {})
+      if (error) throw error
+      return unwrap<SubscriptionRetentionSummary>(data)
     },
     ...options,
   })
@@ -367,6 +537,131 @@ export const useCreateMaintenanceLog = (
   })
 }
 
+type CreateReminderBody = {
+  title: string
+  notes?: string
+  frequencyType: 'days' | 'miles'
+  intervalValue: number
+  dueAt?: string
+  dueOdometer?: number
+}
+
+type UpdateReminderBody = {
+  title?: string
+  notes?: string | null
+  status?: 'due_now' | 'upcoming' | 'deferred' | 'done'
+  deferredUntil?: string | null
+}
+
+export const useCreateVehicleReminder = (
+  vehicleId: string,
+  options?: UseMutationOptions<ReminderCreated, unknown, CreateReminderBody>,
+) => {
+  const client = useApiClient()
+  const queryClient = useQueryClient()
+  return useMutation<ReminderCreated, unknown, CreateReminderBody>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/vehicles/{id}/reminders', {
+        params: { path: { id: vehicleId } },
+        body,
+      })
+      if (error) throw error
+      return unwrap<ReminderCreated>(data)
+    },
+    onSuccess: (...args) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.reminders(vehicleId) })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.actionFeed(vehicleId) })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.forecast(vehicleId) })
+      options?.onSuccess?.(...args)
+    },
+    ...options,
+  })
+}
+
+export const useUpdateVehicleReminder = (
+  vehicleId: string,
+  options?: UseMutationOptions<ReminderUpdated, unknown, { reminderId: string; body: UpdateReminderBody }>,
+) => {
+  const client = useApiClient()
+  const queryClient = useQueryClient()
+  return useMutation<ReminderUpdated, unknown, { reminderId: string; body: UpdateReminderBody }>({
+    mutationFn: async ({ reminderId, body }) => {
+      const { data, error } = await client.PUT('/api/vehicles/{id}/reminders/{reminderId}', {
+        params: { path: { id: vehicleId, reminderId } },
+        body,
+      })
+      if (error) throw error
+      return unwrap<ReminderUpdated>(data)
+    },
+    onSuccess: (...args) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.reminders(vehicleId) })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.vehicles.actionFeed(vehicleId) })
+      options?.onSuccess?.(...args)
+    },
+    ...options,
+  })
+}
+
+type CreateVehicleDocumentBody = {
+  maintenanceLogId?: string
+  type: 'invoice' | 'inspection' | 'photo' | 'insurance' | 'other'
+  title: string
+  storageKey: string
+  mimeType: string
+  sizeBytes: number
+}
+
+export const useCreateVehicleDocument = (
+  vehicleId: string,
+  options?: UseMutationOptions<VehicleDocumentCreated, unknown, CreateVehicleDocumentBody>,
+) => {
+  const client = useApiClient()
+  const queryClient = useQueryClient()
+  return useMutation<VehicleDocumentCreated, unknown, CreateVehicleDocumentBody>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/vehicles/{id}/documents', {
+        params: { path: { id: vehicleId } },
+        body,
+      })
+      if (error) throw error
+      return unwrap<VehicleDocumentCreated>(data)
+    },
+    onSuccess: (...args) => {
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.vehicles.detail(vehicleId), 'documents'] })
+      options?.onSuccess?.(...args)
+    },
+    ...options,
+  })
+}
+
+type UpsertVehicleMemberBody = {
+  userId: string
+  role: 'owner' | 'manager' | 'driver' | 'viewer'
+}
+
+export const useUpsertVehicleMember = (
+  vehicleId: string,
+  options?: UseMutationOptions<VehicleMemberUpserted, unknown, UpsertVehicleMemberBody>,
+) => {
+  const client = useApiClient()
+  const queryClient = useQueryClient()
+  return useMutation<VehicleMemberUpserted, unknown, UpsertVehicleMemberBody>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.PUT('/api/vehicles/{id}/members', {
+        params: { path: { id: vehicleId } },
+        body,
+      })
+      if (error) throw error
+      return unwrap<VehicleMemberUpserted>(data)
+    },
+    onSuccess: (...args) => {
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.vehicles.detail(vehicleId), 'members'] })
+      options?.onSuccess?.(...args)
+    },
+    ...options,
+  })
+}
+
 type SyncActionInput = { id: string; type: string; payload: Record<string, unknown> }
 type SyncBody = {
   actions: SyncActionInput[]
@@ -379,6 +674,54 @@ export const useSyncActions = (options?: UseMutationOptions<SyncResult, unknown,
       const { data, error } = await client.POST('/api/sync', { body })
       if (error) throw error
       return unwrap<SyncResult>(data)
+    },
+    ...options,
+  })
+}
+
+type StartTrialInput = {
+  billingCycle: 'monthly' | 'annual'
+  variant?: string
+}
+
+export const useStartSubscriptionTrial = (
+  options?: UseMutationOptions<StartedTrial, unknown, StartTrialInput>,
+) => {
+  const client = useApiClient()
+  const queryClient = useQueryClient()
+  return useMutation<StartedTrial, unknown, StartTrialInput>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/subscription/trial/start', { body })
+      if (error) throw error
+      return unwrap<StartedTrial>(data)
+    },
+    onSuccess: (...args) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.subscription.status() })
+      options?.onSuccess?.(...args)
+    },
+    ...options,
+  })
+}
+
+type CancelSubscriptionInput = {
+  reason: string
+  feedback?: string
+}
+
+export const useCancelSubscription = (
+  options?: UseMutationOptions<CanceledSubscription, unknown, CancelSubscriptionInput>,
+) => {
+  const client = useApiClient()
+  const queryClient = useQueryClient()
+  return useMutation<CanceledSubscription, unknown, CancelSubscriptionInput>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/subscription/cancel', { body })
+      if (error) throw error
+      return unwrap<CanceledSubscription>(data)
+    },
+    onSuccess: (...args) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.subscription.status() })
+      options?.onSuccess?.(...args)
     },
     ...options,
   })

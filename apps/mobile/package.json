@@ -12,7 +12,8 @@
     "mobile:android": "expo run:android",
     "mobile:ios": "expo run:ios",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "test:vitest": "vitest run"
   },
   "dependencies": {
     "@autocare/api-client": "0.1.0",
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.10",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^4.1.4"
   }
 }

@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import { getGarageEmptyMessage } from '../../../src/screen-messages'
 
 const GarageScreen = () => {
   const { isAuthenticated } = useAuth()
@@ -78,7 +79,7 @@ const GarageScreen = () => {
               </Pressable>
             </Link>
           )}
-          ListEmptyComponent={<Text style={{ color: '#666' }}>No vehicles yet.</Text>}
+          ListEmptyComponent={<Text style={{ color: '#666' }}>{getGarageEmptyMessage()}</Text>}
         />
       )}
     </View>

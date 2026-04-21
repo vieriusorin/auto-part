@@ -30,6 +30,22 @@ export const maintenanceLog = pgTable('maintenance_log', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
+export const vehicleReminder = pgTable('vehicle_reminder', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  vehicleId: uuid('vehicle_id').notNull(),
+  organizationId: text('organization_id').notNull(),
+  title: text('title').notNull(),
+  notes: text('notes'),
+  frequencyType: text('frequency_type').notNull(),
+  intervalValue: integer('interval_value').notNull(),
+  dueAt: timestamp('due_at'),
+  dueOdometer: integer('due_odometer'),
+  status: text('status').notNull().default('upcoming'),
+  deferredUntil: timestamp('deferred_until'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
 export const auditLog = pgTable('audit_log', {
   id: uuid('id').defaultRandom().primaryKey(),
   entityType: text('entity_type').notNull(),
@@ -100,4 +116,13 @@ export const organizationInvite = pgTable('organization_invites', {
   acceptedBy: uuid('accepted_by'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const subscriptionCancellation = pgTable('subscription_cancellations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  organizationId: text('organization_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  reason: text('reason').notNull(),
+  feedback: text('feedback'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })

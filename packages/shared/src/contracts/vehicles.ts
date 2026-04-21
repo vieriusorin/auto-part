@@ -95,8 +95,86 @@ export const UpdateMaintenanceResponseDataSchema = z.object({
   ok: z.boolean(),
 })
 
+export const ReminderFrequencySchema = z.enum(['days', 'miles'])
+export const ReminderStatusSchema = z.enum(['due_now', 'upcoming', 'deferred', 'done'])
+
+export const ReminderEntrySchema = z.object({
+  id: z.string().uuid(),
+  vehicleId: z.string().uuid(),
+  title: z.string(),
+  notes: z.string().nullable(),
+  frequencyType: ReminderFrequencySchema,
+  intervalValue: z.number().int().positive(),
+  dueAt: z.string().nullable(),
+  dueOdometer: z.number().int().nullable(),
+  status: ReminderStatusSchema,
+  deferredUntil: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const ListRemindersResponseDataSchema = z.object({
+  items: z.array(ReminderEntrySchema),
+})
+
+export const CreateReminderBodySchema = z.object({
+  title: z.string().min(1),
+  notes: z.string().optional(),
+  frequencyType: ReminderFrequencySchema,
+  intervalValue: z.number().int().positive(),
+  dueAt: z.string().datetime().optional(),
+  dueOdometer: z.number().int().nonnegative().optional(),
+})
+
+export const CreateReminderResponseDataSchema = ReminderEntrySchema
+
+export const ReminderIdParamsSchema = z.object({
+  id: z.string().min(1),
+  reminderId: z.string().min(1),
+})
+
+export const UpdateReminderBodySchema = z.object({
+  title: z.string().min(1).optional(),
+  notes: z.string().nullable().optional(),
+  status: ReminderStatusSchema.optional(),
+  deferredUntil: z.string().datetime().nullable().optional(),
+  dueAt: z.string().datetime().nullable().optional(),
+  dueOdometer: z.number().int().nonnegative().nullable().optional(),
+})
+
+export const UpdateReminderResponseDataSchema = ReminderEntrySchema
+
+export const ActionFeedItemSchema = z.object({
+  id: z.string(),
+  sourceType: z.enum(['reminder', 'maintenance']),
+  sourceId: z.string(),
+  title: z.string(),
+  urgency: z.enum(['do_now', 'plan', 'defer']),
+  rationale: z.string(),
+  dueAt: z.string().nullable(),
+})
+
+export const ListActionFeedResponseDataSchema = z.object({
+  items: z.array(ActionFeedItemSchema),
+})
+
+export const ForecastItemSchema = z.object({
+  category: z.string(),
+  expectedCost: z.number().int().nonnegative(),
+  dueAt: z.string().nullable(),
+  rationale: z.string(),
+})
+
+export const ForecastResponseDataSchema = z.object({
+  horizonMonths: z.number().int().positive(),
+  totalExpectedCost: z.number().int().nonnegative(),
+  items: z.array(ForecastItemSchema),
+})
+
 export const UploadResponseDataSchema = z.object({
   url: z.string().url(),
+  storageKey: z.string(),
+  expiresAt: z.string(),
 })
 
 export const FuelEntrySchema = z.object({

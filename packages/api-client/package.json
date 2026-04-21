@@ -23,7 +23,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "generate": "npm run openapi:generate -w @autocare/server && openapi-typescript ../../apps/server/openapi.json -o src/types.gen.ts",
     "generate:types": "openapi-typescript ../../apps/server/openapi.json -o src/types.gen.ts",
-    "lint": "echo \"no lint configured\""
+    "lint": "echo \"no lint configured\"",
+    "test:vitest": "vitest run"
   },
   "peerDependencies": {
     "@tanstack/react-query": "^5.0.0",
@@ -41,6 +42,7 @@
     "@types/react": "^19.2.0",
     "openapi-typescript": "^7.5.0",
     "react": "^19.2.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^4.1.4"
   }
 }

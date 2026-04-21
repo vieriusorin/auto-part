@@ -10,10 +10,10 @@ Prove recurring maintenance value and behavior change for the primary ICP.
 - **Execution evidence**: `.planning/phases/phase-1/EXECUTION.md`
 
 ## Sequencing
-1. Mobile auth and protected data flow stabilization. **← in progress (see `.planning/STATE.md` → Implementation progress)**
-2. Vehicle/timeline/reminder/action loop implementation.
-3. Media-first evidence + family/micro-fleet assignment roles.
-4. Forecast + report viewer + artifact upload hardening.
+1. Mobile auth and protected data flow stabilization. **← delivered in prior windows**
+2. Vehicle/timeline/reminder/action loop implementation. **← delivered in window 2 baseline**
+3. Media-first evidence + family/micro-fleet assignment roles. **← in progress**
+4. Forecast + report viewer + artifact upload hardening. **← delivered in window 2 baseline**
 
 ### Step 1 checklist (auth + clients) — repo status
 - [x] Express auth module mounted at `/auth` (JWT, refresh, web cookies + CSRF, mobile tokens in body)

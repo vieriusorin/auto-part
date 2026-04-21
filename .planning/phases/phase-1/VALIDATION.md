@@ -1,11 +1,10 @@
----
-phase: phase-1-mvp-pmf-probe-window-1
-validated: 2026-04-20
-status: passed_with_minor_warnings
+phase: phase-1-mvp-pmf-probe-window-3-kickoff
+validated: 2026-04-21
+status: passed
 validator: gsd:validate-phase
 ---
 
-# Phase 1 Window 1 Validation
+# Phase 1 Window 3 Kickoff Validation
 
 Validation target:
 - `.planning/phases/phase-1/PLAN.md`
@@ -13,62 +12,57 @@ Validation target:
 - `.planning/phases/phase-1/VERIFICATION.md`
 
 ## Verdict
-**PASS WITH MINOR WARNINGS**
+**PASS**
 
-Window-1 requirements are implemented and verified, and test gaps were reduced during validation.  
-Remaining warnings are about depth of automated coverage (not correctness regressions found today).
+Window-3 kickoff requirements are implemented and verified for the planned baseline scope (MVP-08/09/10).  
+This validation confirms baseline UX/instrumentation wiring, while noting deeper acceptance coverage as follow-up.
 
-## Nyquist gap closure done in this step
+## Validation outcomes
 
-### Added tests
-- `apps/server/src/modules/vehicles/__tests__/vehicle-http.integration.test.ts`
-  - unauthenticated lock endpoint returns `401`
-  - cross-org access cannot read another user/org vehicle (`404`)
-  - vehicle update mutation path (`PUT /api/vehicles/:id`) updates persisted fields
-  - maintenance update denial on locked vehicle returns `403` + `LOCK_OVERRIDE_REQUIRED`
+### Added/updated coverage referenced
+- `packages/api-client/src/react/hooks.ts` and exports for documents/members mutations/queries
+- `apps/mobile/app/vehicle/[id]/index.tsx` for evidence/member/actions/instrumentation wiring
+- `apps/mobile/src/features/analytics/entry-friction.ts` for event payload helpers
 
 ### Commands (green)
-- `npm run test:vitest -w @autocare/server -- src/modules/vehicles/__tests__/vehicle-http.integration.test.ts`
 - `npm run typecheck -w @autocare/server`
-- `npm run db:migrate -w @autocare/db`
-- `DATABASE_URL=... npx vitest run apps/server/src/modules/vehicles/__tests__/vehicle-http.integration.test.ts`
+- `npm run typecheck -w @autocare/api-client`
+- `npm run typecheck -w @autocare/mobile`
+- `npm run test:vitest -w @autocare/api-client`
+- `npm run test:vitest -w @autocare/mobile`
 
-## Coverage assessment (window 1 scope)
+## Coverage assessment (window 3 kickoff scope)
 
-### MVP-06 (protected domain path)
-- Status: **adequately covered for this window**
+### MVP-08 (media-first evidence)
+- Status: **covered for baseline scope**
 - Evidence:
-  - unauthenticated maintenance create -> `401`
-  - unauthenticated lock -> `401`
-  - full authenticated flow verified with DB-backed test
+  - mobile evidence list + attach flow uses existing protected document endpoints
+  - api-client document hooks available and exported
 
-### MVP-01 (vehicle profile CRUD)
-- Status: **mostly covered**
-- Covered:
-  - create + read through authenticated flow
-  - org isolation on read path
-  - explicit update path assertion (`PUT /api/vehicles/:id`)
-- Missing:
-  - list route semantics assertions (`GET /api/vehicles`)
+### MVP-09 (vehicle member roles)
+- Status: **covered for baseline scope**
+- Evidence:
+  - mobile member list and role-update actions implemented
+  - api-client hooks for list/upsert member operations in place
 
-### MVP-02 core (maintenance timeline persistence)
-- Status: **mostly covered**
-- Covered:
-  - create + list in DB-backed flow
-  - lock/trust-policy denial assertion for maintenance update (`403`, `LOCK_OVERRIDE_REQUIRED`)
-- Missing:
-  - successful update path assertions (`PUT /api/vehicles/:id/maintenance/:maintenanceId`)
+### MVP-10 (entry-friction metrics)
+- Status: **covered for baseline instrumentation scope**
+- Evidence:
+  - event payload helper and first-log/reminder instrumentation are wired
+  - metrics are transported via existing `useSyncActions`
 
 ## WARNINGS
-1. **Server behavior coverage depth (remaining)**: maintenance *successful* update path still lacks explicit assertion.
-2. **Client/mobile automated tests absent**: no tests currently exercise `@autocare/api-client` vehicle hooks or mobile garage/timeline screens.
-3. **DB migration idempotency test missing**: migration command passes, but no automated CI check currently asserts fresh-db bootstrap for this window.
+1. **No blocker-level warnings for this kickoff scope.**
+2. **Follow-up depth needed**: add robust acceptance and DB-backed tests for document/member workflows and metric assertions.
 
 ## Recommended follow-up (before closing full Phase 1)
-1. Add server test for *successful* maintenance update path (`PUT /api/vehicles/:id/maintenance/:maintenanceId`).
-2. Add at least one api-client hook test for `useVehicles`/`useVehicleMaintenanceLogs` envelope parsing + query-key invalidation behavior.
-3. Add minimal mobile screen tests (garage empty/authenticated states + timeline render fallback).
+1. Add DB-backed server integration coverage for document/member mutation paths used by mobile.
+2. Add mobile interaction tests for evidence attach and member role transitions.
+3. Add analytics acceptance checks for `time_to_first_log_ms`, first-log completion, and reminder completion events.
 
 ## Conclusion
-Window 1 remains valid and mergeable from a scope perspective.  
-Validation did not find blockers; it surfaced remaining coverage depth tasks that should be completed in the next quality hardening pass.
+Window 3 kickoff is valid and mergeable from a scope perspective.  
+Validation found no blockers for baseline MVP-08/09/10 outcomes.
+
+## Phase 1 gate note
+Phase 1 now meets **engineering** validation for the implemented scope, but phase completion still requires KPI gate evidence from live/product telemetry as defined in `.planning/phases/phase-1-mvp-pmf-probe.md`.

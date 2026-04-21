@@ -321,6 +321,65 @@ describe.skipIf(!process.env.DATABASE_URL)('vehicle HTTP (with database)', () =>
     expect(denied.body.reasonCode).toBe('LOCK_OVERRIDE_REQUIRED')
   })
 
+  it('updates maintenance log when vehicle is unlocked', async () => {
+    const db = getAuthDb(process.env.DATABASE_URL as string)
+    const { app } = await buildVehicleApp(db)
+
+    const reg = await request(app)
+      .post('/auth/register')
+      .set('X-Client', 'mobile')
+      .send({ email: `maintenance-update-${Date.now()}@example.com`, password: 'password123' })
+    expect(reg.status).toBe(201)
+    const token = reg.body.data.tokens.accessToken as string
+
+    const createdVehicle = await request(app)
+      .post('/api/vehicles')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        make: 'Seat',
+        model: 'Leon',
+        year: 2022,
+        vin: `ST${Date.now().toString(36)}`,
+      })
+    expect(createdVehicle.status).toBe(201)
+    const vehicleId = createdVehicle.body.data.id as string
+
+    const createdMaintenance = await request(app)
+      .post(`/api/vehicles/${vehicleId}/maintenance`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        odometer: 12000,
+        category: 'Service',
+        description: 'Initial service',
+      })
+    expect(createdMaintenance.status).toBe(201)
+
+    const maintenanceList = await request(app)
+      .get(`/api/vehicles/${vehicleId}/maintenance`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+    expect(maintenanceList.status).toBe(200)
+    const maintenanceId = maintenanceList.body.data.items[0].id as string
+
+    const updated = await request(app)
+      .put(`/api/vehicles/${vehicleId}/maintenance/${maintenanceId}`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ description: 'Updated service notes', totalCost: 450 })
+    expect(updated.status).toBe(200)
+    expect(updated.body.data.ok).toBe(true)
+
+    const afterUpdate = await request(app)
+      .get(`/api/vehicles/${vehicleId}/maintenance`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+    expect(afterUpdate.status).toBe(200)
+    expect(afterUpdate.body.data.items[0].description).toBe('Updated service notes')
+    expect(afterUpdate.body.data.items[0].totalCost).toBe(450)
+  })
+
   it('creates and lists vehicle documents for timeline evidence', async () => {
     const db = getAuthDb(process.env.DATABASE_URL as string)
     const { app } = await buildVehicleApp(db)
@@ -495,5 +554,129 @@ describe.skipIf(!process.env.DATABASE_URL)('vehicle HTTP (with database)', () =>
     expect(listed.status).toBe(200)
     expect(listed.body.data.items).toHaveLength(1)
     expect(listed.body.data.items[0].userId).toBe(memberId)
+  })
+
+  it('creates reminders and returns action-feed + forecast for owned vehicle', async () => {
+    const db = getAuthDb(process.env.DATABASE_URL as string)
+    const { app } = await buildVehicleApp(db)
+
+    const reg = await request(app)
+      .post('/auth/register')
+      .set('X-Client', 'mobile')
+      .send({ email: `reminder-flow-${Date.now()}@example.com`, password: 'password123' })
+    expect(reg.status).toBe(201)
+    const token = reg.body.data.tokens.accessToken as string
+
+    const createdVehicle = await request(app)
+      .post('/api/vehicles')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        make: 'Audi',
+        model: 'A4',
+        year: 2021,
+        vin: `AU${Date.now().toString(36)}`,
+      })
+    expect(createdVehicle.status).toBe(201)
+    const vehicleId = createdVehicle.body.data.id as string
+
+    const createdReminder = await request(app)
+      .post(`/api/vehicles/${vehicleId}/reminders`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        title: 'Brake fluid check',
+        frequencyType: 'days',
+        intervalValue: 180,
+        dueAt: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+      })
+    expect(createdReminder.status).toBe(201)
+    expect(createdReminder.body.data.title).toBe('Brake fluid check')
+
+    const listReminders = await request(app)
+      .get(`/api/vehicles/${vehicleId}/reminders`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+    expect(listReminders.status).toBe(200)
+    expect(listReminders.body.data.items.length).toBe(1)
+
+    const actionFeed = await request(app)
+      .get(`/api/vehicles/${vehicleId}/action-feed`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+    expect(actionFeed.status).toBe(200)
+    expect(actionFeed.body.data.items.length).toBeGreaterThan(0)
+    expect(actionFeed.body.data.items[0].sourceType).toBe('reminder')
+
+    const forecast = await request(app)
+      .get(`/api/vehicles/${vehicleId}/forecast`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+    expect(forecast.status).toBe(200)
+    expect(forecast.body.data.horizonMonths).toBe(6)
+    expect(Array.isArray(forecast.body.data.items)).toBe(true)
+  })
+
+  it('enforces org isolation for reminders/documents/action-feed/forecast', async () => {
+    const db = getAuthDb(process.env.DATABASE_URL as string)
+    const { app } = await buildVehicleApp(db)
+
+    const ownerReg = await request(app)
+      .post('/auth/register')
+      .set('X-Client', 'mobile')
+      .send({ email: `isolation-owner-${Date.now()}@example.com`, password: 'password123' })
+    expect(ownerReg.status).toBe(201)
+    const ownerToken = ownerReg.body.data.tokens.accessToken as string
+
+    const vehicleRes = await request(app)
+      .post('/api/vehicles')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        make: 'BMW',
+        model: '320d',
+        year: 2020,
+        vin: `BM${Date.now().toString(36)}`,
+      })
+    expect(vehicleRes.status).toBe(201)
+    const vehicleId = vehicleRes.body.data.id as string
+
+    const strangerReg = await request(app)
+      .post('/auth/register')
+      .set('X-Client', 'mobile')
+      .send({ email: `isolation-stranger-${Date.now()}@example.com`, password: 'password123' })
+    expect(strangerReg.status).toBe(201)
+    const strangerToken = strangerReg.body.data.tokens.accessToken as string
+
+    const reminderRead = await request(app)
+      .get(`/api/vehicles/${vehicleId}/reminders`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${strangerToken}`)
+    expect(reminderRead.status).toBe(404)
+
+    const docWrite = await request(app)
+      .post(`/api/vehicles/${vehicleId}/documents`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${strangerToken}`)
+      .send({
+        type: 'photo',
+        title: 'Unauthorized',
+        storageKey: `org/test/${vehicleId}/unauth.jpg`,
+        mimeType: 'image/jpeg',
+        sizeBytes: 1234,
+      })
+    expect(docWrite.status).toBe(404)
+
+    const actionFeedRead = await request(app)
+      .get(`/api/vehicles/${vehicleId}/action-feed`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${strangerToken}`)
+    expect(actionFeedRead.status).toBe(404)
+
+    const forecastRead = await request(app)
+      .get(`/api/vehicles/${vehicleId}/forecast`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${strangerToken}`)
+    expect(forecastRead.status).toBe(404)
   })
 })

@@ -1,4 +1,4 @@
-import { maintenanceLog, users, vehicle, vehicleDocument, vehicleMember } from '@autocare/db'
+import { maintenanceLog, users, vehicle, vehicleDocument, vehicleMember, vehicleReminder } from '@autocare/db'
 import type { CreateVehicleInput } from '@autocare/shared'
 import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
@@ -9,6 +9,7 @@ export type VehicleRow = typeof vehicle.$inferSelect
 export type MaintenanceLogRow = typeof maintenanceLog.$inferSelect
 export type VehicleDocumentRow = typeof vehicleDocument.$inferSelect
 export type VehicleMemberRow = typeof vehicleMember.$inferSelect
+export type VehicleReminderRow = typeof vehicleReminder.$inferSelect
 
 export type VehicleRepository = {
   listForOrganization: (organizationId: string) => Promise<VehicleRow[]>
@@ -80,6 +81,30 @@ export type VehicleRepository = {
     role: 'owner' | 'manager' | 'driver' | 'viewer'
     assignedBy: string
   }) => Promise<VehicleMemberRow>
+  listRemindersForVehicle: (vehicleId: string, organizationId: string) => Promise<VehicleReminderRow[]>
+  createReminder: (input: {
+    vehicleId: string
+    organizationId: string
+    title: string
+    notes?: string
+    frequencyType: 'days' | 'miles'
+    intervalValue: number
+    dueAt?: Date
+    dueOdometer?: number
+  }) => Promise<VehicleReminderRow>
+  updateReminderOwned: (input: {
+    reminderId: string
+    vehicleId: string
+    organizationId: string
+    patch: Partial<{
+      title: string
+      notes: string | null
+      status: 'due_now' | 'upcoming' | 'deferred' | 'done'
+      deferredUntil: Date | null
+      dueAt: Date | null
+      dueOdometer: number | null
+    }>
+  }) => Promise<VehicleReminderRow | null>
 }
 
 const findOwnedVehicle = async (
@@ -411,5 +436,84 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
       throw new Error('Failed to create vehicle member')
     }
     return created
+  },
+
+  listRemindersForVehicle: async (vehicleId, organizationId) => {
+    const v = await findOwnedVehicle(db, vehicleId, organizationId)
+    if (!v) return []
+    return db
+      .select()
+      .from(vehicleReminder)
+      .where(and(eq(vehicleReminder.vehicleId, vehicleId), eq(vehicleReminder.organizationId, organizationId)))
+      .orderBy(vehicleReminder.dueAt, desc(vehicleReminder.createdAt))
+  },
+
+  createReminder: async ({
+    vehicleId,
+    organizationId,
+    title,
+    notes,
+    frequencyType,
+    intervalValue,
+    dueAt,
+    dueOdometer,
+  }) => {
+    const v = await findOwnedVehicle(db, vehicleId, organizationId)
+    if (!v) {
+      throw new Error('vehicle_not_found')
+    }
+    const [row] = await db
+      .insert(vehicleReminder)
+      .values({
+        vehicleId,
+        organizationId,
+        title,
+        notes: notes ?? null,
+        frequencyType,
+        intervalValue,
+        dueAt: dueAt ?? null,
+        dueOdometer: dueOdometer ?? null,
+        status: 'upcoming',
+        updatedAt: new Date(),
+      })
+      .returning()
+    if (!row) {
+      throw new Error('Failed to create reminder')
+    }
+    return row
+  },
+
+  updateReminderOwned: async ({ reminderId, vehicleId, organizationId, patch }) => {
+    const owned = await findOwnedVehicle(db, vehicleId, organizationId)
+    if (!owned) return null
+    const [existing] = await db
+      .select()
+      .from(vehicleReminder)
+      .where(
+        and(
+          eq(vehicleReminder.id, reminderId),
+          eq(vehicleReminder.vehicleId, vehicleId),
+          eq(vehicleReminder.organizationId, organizationId),
+        ),
+      )
+      .limit(1)
+    if (!existing) {
+      return null
+    }
+    const next: Partial<typeof vehicleReminder.$inferInsert> = {
+      updatedAt: new Date(),
+    }
+    if (patch.title !== undefined) next.title = patch.title
+    if (patch.notes !== undefined) next.notes = patch.notes
+    if (patch.status !== undefined) next.status = patch.status
+    if (patch.deferredUntil !== undefined) next.deferredUntil = patch.deferredUntil
+    if (patch.dueAt !== undefined) next.dueAt = patch.dueAt
+    if (patch.dueOdometer !== undefined) next.dueOdometer = patch.dueOdometer
+    const [updated] = await db
+      .update(vehicleReminder)
+      .set(next)
+      .where(eq(vehicleReminder.id, reminderId))
+      .returning()
+    return updated ?? null
   },
 })

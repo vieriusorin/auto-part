@@ -12,6 +12,9 @@ export const queryKeys = {
     list: () => [...queryKeys.vehicles.all, 'list'] as const,
     detail: (vehicleId: string) => [...queryKeys.vehicles.all, vehicleId] as const,
     maintenance: (vehicleId: string) => [...queryKeys.vehicles.all, vehicleId, 'maintenance'] as const,
+    reminders: (vehicleId: string) => [...queryKeys.vehicles.all, vehicleId, 'reminders'] as const,
+    actionFeed: (vehicleId: string) => [...queryKeys.vehicles.all, vehicleId, 'action-feed'] as const,
+    forecast: (vehicleId: string) => [...queryKeys.vehicles.all, vehicleId, 'forecast'] as const,
     fuel: (vehicleId: string) => [...queryKeys.vehicles.all, vehicleId, 'fuel'] as const,
   },
   analytics: {
@@ -37,6 +40,13 @@ export const queryKeys = {
   banners: {
     all: ['banners'] as const,
     list: () => ['banners', 'list'] as const,
+  },
+  subscription: {
+    all: ['subscription'] as const,
+    status: () => ['subscription', 'status'] as const,
+    offers: () => ['subscription', 'offers'] as const,
+    cancelReasons: () => ['subscription', 'cancel-reasons'] as const,
+    retentionSummary: () => ['subscription', 'retention-summary'] as const,
   },
   utility: {
     all: ['utility'] as const,

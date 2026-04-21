@@ -3,10 +3,15 @@ import {
   CreateMaintenanceResponseDataSchema,
   CreateVehicleDocumentBodySchema,
   CreateVehicleDocumentResponseDataSchema,
+  CreateReminderBodySchema,
+  CreateReminderResponseDataSchema,
   CreateVehicleResponseDataSchema,
   createVehicleSchema,
+  ForecastResponseDataSchema,
   ListFuelEntriesResponseDataSchema,
+  ListActionFeedResponseDataSchema,
   ListMaintenanceLogsResponseDataSchema,
+  ListRemindersResponseDataSchema,
   ListVehicleDocumentsResponseDataSchema,
   ListVehicleMembersResponseDataSchema,
   ListVehiclesResponseDataSchema,
@@ -15,11 +20,14 @@ import {
   ScanVehicleDocumentResponseDataSchema,
   UpdateMaintenanceBodySchema,
   UpdateMaintenanceResponseDataSchema,
+  UpdateReminderBodySchema,
+  UpdateReminderResponseDataSchema,
   UpsertVehicleMemberBodySchema,
   UpsertVehicleMemberResponseDataSchema,
   updateVehicleBodySchema,
   UploadResponseDataSchema,
   VehicleIdParamsSchema,
+  ReminderIdParamsSchema,
   VehicleResponseSchema,
 } from '@autocare/shared'
 import type { Request, RequestHandler } from 'express'
@@ -41,12 +49,18 @@ import {
   type VehicleMemberRow,
   type VehicleRepository,
   type VehicleRow,
+  type VehicleReminderRow,
 } from '../../infrastructure/vehicle-repository.js'
 
 const VEHICLES_TAG = 'Vehicles'
 const UTILITY_TAG = 'Utility'
 
 const toIso = (d: Date): string => d.toISOString()
+const toDateOrNull = (value: string | null | undefined): Date | null | undefined => {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  return new Date(value)
+}
 
 const mapVehicle = (row: VehicleRow) => ({
   id: row.id,
@@ -93,6 +107,21 @@ const mapVehicleMember = (row: VehicleMemberRow) => ({
   role: row.role as 'owner' | 'manager' | 'driver' | 'viewer',
   assignedBy: row.assignedBy,
   createdAt: toIso(row.createdAt),
+})
+
+const mapReminder = (row: VehicleReminderRow) => ({
+  id: row.id,
+  vehicleId: row.vehicleId,
+  title: row.title,
+  notes: row.notes ?? null,
+  frequencyType: row.frequencyType as 'days' | 'miles',
+  intervalValue: row.intervalValue,
+  dueAt: row.dueAt ? toIso(row.dueAt) : null,
+  dueOdometer: row.dueOdometer ?? null,
+  status: row.status as 'due_now' | 'upcoming' | 'deferred' | 'done',
+  deferredUntil: row.deferredUntil ? toIso(row.deferredUntil) : null,
+  createdAt: toIso(row.createdAt),
+  updatedAt: toIso(row.updatedAt),
 })
 
 const requireOrganizationId =
@@ -162,6 +191,206 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
       const orgId = req.user?.organizationId as string
       const rows = await repos.listForOrganization(orgId)
       commonPresenter.ok(res, { items: rows.map(mapVehicle) })
+    },
+  })
+
+  registerRoute(router, '/api', {
+    method: 'get',
+    path: '/vehicles/:id/reminders',
+    tags: [VEHICLES_TAG],
+    summary: 'List reminders for a vehicle',
+    operationId: 'listVehicleReminders',
+    params: VehicleIdParamsSchema,
+    middlewares: [requirePermission('vehicles.read'), requireOrg],
+    responses: {
+      200: {
+        description: 'Vehicle reminders',
+        dataSchema: ListRemindersResponseDataSchema,
+      },
+    },
+    handler: async ({ req, res, params }) => {
+      const orgId = req.user?.organizationId as string
+      const vehicleId = params?.id ?? ''
+      const owned = await repos.findOwned(vehicleId, orgId)
+      if (!owned) {
+        commonPresenter.error(res, 404, 'not_found', 'Vehicle not found')
+        return
+      }
+      const items = await repos.listRemindersForVehicle(vehicleId, orgId)
+      commonPresenter.ok(res, { items: items.map(mapReminder) })
+    },
+  })
+
+  registerRoute(router, '/api', {
+    method: 'post',
+    path: '/vehicles/:id/reminders',
+    tags: [VEHICLES_TAG],
+    summary: 'Create reminder for a vehicle',
+    operationId: 'createVehicleReminder',
+    params: VehicleIdParamsSchema,
+    body: CreateReminderBodySchema,
+    middlewares: [requirePermission('logs.create'), requireOrg],
+    responses: {
+      201: {
+        description: 'Reminder created',
+        dataSchema: CreateReminderResponseDataSchema,
+      },
+    },
+    handler: async ({ req, res, params, body }) => {
+      const orgId = req.user?.organizationId as string
+      const vehicleId = params?.id ?? ''
+      try {
+        const created = await repos.createReminder({
+          vehicleId,
+          organizationId: orgId,
+          title: body?.title ?? '',
+          notes: body?.notes,
+          frequencyType: (body?.frequencyType ?? 'days') as 'days' | 'miles',
+          intervalValue: body?.intervalValue ?? 30,
+          dueAt: body?.dueAt ? new Date(body.dueAt) : undefined,
+          dueOdometer: body?.dueOdometer,
+        })
+        commonPresenter.created(res, mapReminder(created))
+      } catch (error) {
+        if (error instanceof Error && error.message === 'vehicle_not_found') {
+          commonPresenter.error(res, 404, 'not_found', 'Vehicle not found')
+          return
+        }
+        throw error
+      }
+    },
+  })
+
+  registerRoute(router, '/api', {
+    method: 'put',
+    path: '/vehicles/:id/reminders/:reminderId',
+    tags: [VEHICLES_TAG],
+    summary: 'Update reminder status/details',
+    operationId: 'updateVehicleReminder',
+    params: ReminderIdParamsSchema,
+    body: UpdateReminderBodySchema,
+    middlewares: [requirePermission('logs.update'), requireOrg],
+    responses: {
+      200: {
+        description: 'Reminder updated',
+        dataSchema: UpdateReminderResponseDataSchema,
+      },
+    },
+    handler: async ({ req, res, params, body }) => {
+      const orgId = req.user?.organizationId as string
+      const vehicleId = params?.id ?? ''
+      const reminderId = params?.reminderId ?? ''
+      const updated = await repos.updateReminderOwned({
+        reminderId,
+        vehicleId,
+        organizationId: orgId,
+        patch: {
+          title: body?.title,
+          notes: body?.notes,
+          status: body?.status as 'due_now' | 'upcoming' | 'deferred' | 'done' | undefined,
+          deferredUntil: toDateOrNull(body?.deferredUntil),
+          dueAt: toDateOrNull(body?.dueAt),
+          dueOdometer: body?.dueOdometer,
+        },
+      })
+      if (!updated) {
+        commonPresenter.error(res, 404, 'not_found', 'Reminder not found')
+        return
+      }
+      commonPresenter.ok(res, mapReminder(updated))
+    },
+  })
+
+  registerRoute(router, '/api', {
+    method: 'get',
+    path: '/vehicles/:id/action-feed',
+    tags: [VEHICLES_TAG],
+    summary: 'Get prioritized action feed for a vehicle',
+    operationId: 'getVehicleActionFeed',
+    params: VehicleIdParamsSchema,
+    middlewares: [requirePermission('vehicles.read'), requireOrg],
+    responses: {
+      200: {
+        description: 'Vehicle action feed',
+        dataSchema: ListActionFeedResponseDataSchema,
+      },
+    },
+    handler: async ({ req, res, params }) => {
+      const orgId = req.user?.organizationId as string
+      const vehicleId = params?.id ?? ''
+      const owned = await repos.findOwned(vehicleId, orgId)
+      if (!owned) {
+        commonPresenter.error(res, 404, 'not_found', 'Vehicle not found')
+        return
+      }
+      const reminders = await repos.listRemindersForVehicle(vehicleId, orgId)
+      const now = Date.now()
+      const items = reminders.map((reminder) => {
+        const dueMs = reminder.dueAt ? reminder.dueAt.getTime() : null
+        const urgency =
+          reminder.status === 'deferred'
+            ? 'defer'
+            : dueMs !== null && dueMs <= now
+              ? 'do_now'
+              : 'plan'
+        const rationale =
+          urgency === 'do_now'
+            ? 'Past due or due today'
+            : urgency === 'defer'
+              ? 'Explicitly deferred by user'
+              : 'Upcoming maintenance window'
+        return {
+          id: `reminder:${reminder.id}`,
+          sourceType: 'reminder' as const,
+          sourceId: reminder.id,
+          title: reminder.title,
+          urgency,
+          rationale,
+          dueAt: reminder.dueAt ? toIso(reminder.dueAt) : null,
+        }
+      })
+      commonPresenter.ok(res, { items })
+    },
+  })
+
+  registerRoute(router, '/api', {
+    method: 'get',
+    path: '/vehicles/:id/forecast',
+    tags: [VEHICLES_TAG],
+    summary: 'Get basic 3-6 month maintenance forecast',
+    operationId: 'getVehicleForecast',
+    params: VehicleIdParamsSchema,
+    middlewares: [requirePermission('vehicles.read'), requireOrg],
+    responses: {
+      200: {
+        description: 'Vehicle forecast',
+        dataSchema: ForecastResponseDataSchema,
+      },
+    },
+    handler: async ({ req, res, params }) => {
+      const orgId = req.user?.organizationId as string
+      const vehicleId = params?.id ?? ''
+      const owned = await repos.findOwned(vehicleId, orgId)
+      if (!owned) {
+        commonPresenter.error(res, 404, 'not_found', 'Vehicle not found')
+        return
+      }
+      const reminders = await repos.listRemindersForVehicle(vehicleId, orgId)
+      const items = reminders.slice(0, 6).map((reminder) => ({
+        category: reminder.title,
+        expectedCost: reminder.frequencyType === 'miles' ? 600 : 300,
+        dueAt: reminder.dueAt ? toIso(reminder.dueAt) : null,
+        rationale:
+          reminder.frequencyType === 'miles'
+            ? `Mileage-based reminder every ${reminder.intervalValue} km`
+            : `Time-based reminder every ${reminder.intervalValue} days`,
+      }))
+      const totalExpectedCost = items.reduce((sum, item) => sum + item.expectedCost, 0)
+      commonPresenter.ok(res, {
+        horizonMonths: 6,
+        totalExpectedCost,
+        items,
+      })
     },
   })
 
@@ -352,7 +581,11 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     },
     handler: async ({ req, res, body }) => {
       const orgId = req.user?.organizationId as string
-      const row = await repos.create(orgId, body!)
+      if (!body) {
+        commonPresenter.error(res, 400, 'invalid_payload', 'Vehicle payload is required')
+        return
+      }
+      const row = await repos.create(orgId, body)
       commonPresenter.created(res, mapVehicle(row))
     },
   })
@@ -584,8 +817,15 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
         dataSchema: UploadResponseDataSchema,
       },
     },
-    handler: ({ res }) => {
-      commonPresenter.created(res, { url: 'https://example.r2.dev/file.jpg' })
+    handler: ({ req, res }) => {
+      const userId = req.user?.id ?? 'anonymous'
+      const storageKey = `uploads/${userId}/${Date.now().toString(36)}.jpg`
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      commonPresenter.created(res, {
+        url: `https://example.r2.dev/${storageKey}?signature=demo`,
+        storageKey,
+        expiresAt,
+      })
     },
   })
 

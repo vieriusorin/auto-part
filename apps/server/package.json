@@ -16,7 +16,10 @@
     "phase0:gate": "tsx scripts/phase0-gate.ts",
     "db:reset": "tsx scripts/db-reset.ts",
     "db:seed": "tsx scripts/db-seed.ts",
-    "openapi:generate": "tsx scripts/generate-openapi.ts"
+    "openapi:generate": "tsx scripts/generate-openapi.ts",
+    "db:migrate": "npm run db:migrate -w @autocare/db",
+    "db:studio:free-port": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$lines = netstat -ano | Select-String '127.0.0.1:4983\\s+.*LISTENING'; if ($lines) { $pids = $lines | ForEach-Object { (($_ -replace '^\\s+','') -split '\\s+')[-1] } | Sort-Object -Unique; foreach ($procId in $pids) { taskkill /PID $procId /F | Out-Null } }\"",
+    "db:studio": "npm run db:studio:free-port && npm run db:studio -w @autocare/db"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",
