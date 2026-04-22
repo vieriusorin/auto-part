@@ -39,6 +39,10 @@ export const StartTrialResponseDataSchema = z.object({
   trialEndsAt: z.string().datetime(),
 })
 
+export const MarkMonth2ActiveResponseDataSchema = z.object({
+  recorded: z.literal(true),
+})
+
 export const CancelSubscriptionBodySchema = z.object({
   reason: z.string().min(2).max(120),
   feedback: z.string().max(500).optional(),

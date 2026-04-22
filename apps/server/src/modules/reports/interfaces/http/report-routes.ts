@@ -1,11 +1,13 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { Router } from 'express'
 import {
+  ApiErrorResponseSchema,
   CancelSubscriptionBodySchema,
   ListSubscriptionCancelReasonsResponseDataSchema,
   CancelSubscriptionResponseDataSchema,
   GenerateReportResponseDataSchema,
   ListPaywallOffersResponseDataSchema,
+  MarkMonth2ActiveResponseDataSchema,
   StartTrialBodySchema,
   StartTrialResponseDataSchema,
   SubscriptionRetentionSummaryResponseDataSchema,
@@ -21,8 +23,9 @@ import { createAuthHttpGuards } from '../../../auth/interfaces/http/auth-http-gu
 import { createRequirePermissionMiddleware } from '../../../auth/interfaces/http/require-permission.middleware.js'
 import { createRequirePlanMiddleware } from '../../../auth/interfaces/http/require-plan.middleware.js'
 import { computePreviousWindow, buildSpendKpis } from '../../application/spend-kpis.js'
+import { buildSubscriptionRetentionSummary } from '../../application/subscription-retention-summary.js'
 import { createVehicleRepository } from '../../../vehicles/infrastructure/vehicle-repository.js'
-import { listDailyRollups } from '../../../analytics/repository.js'
+import { appendRawEvent, listDailyRollups, listRawEvents } from '../../../analytics/repository.js'
 import { desc, eq, sql } from 'drizzle-orm'
 
 const REPORTS_TAG = 'Reports'
@@ -39,6 +42,45 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
     : createRequirePlanMiddleware({ minimumPlan: 'premium' })
   const vehicleRepo = authModule ? createVehicleRepository(authModule.db) : null
 
+  const hasRecentMaintenanceValueEvent = async (organizationId: string): Promise<boolean> => {
+    if (!vehicleRepo) {
+      return false
+    }
+    const since = new Date()
+    since.setUTCDate(since.getUTCDate() - 30)
+    const logs = await vehicleRepo.listMaintenanceForOrganizationInRange({
+      organizationId,
+      from: since,
+      to: new Date(),
+    })
+    return logs.length > 0
+  }
+
+  const trackSubscriptionEvent = async ({
+    eventName,
+    userId,
+    platform,
+  }: {
+    eventName: string
+    userId: string | null
+    platform: 'ios' | 'android'
+  }): Promise<void> => {
+    await appendRawEvent({
+      eventId: randomUUID(),
+      eventName,
+      occurredAtClient: new Date().toISOString(),
+      receivedAtServer: new Date().toISOString(),
+      userId,
+      sessionId: randomUUID(),
+      deviceId: 'server-derived',
+      platform,
+      country: 'XX',
+      channel: 'organic',
+      appVersion: 'server',
+      schemaVersion: 1,
+    })
+  }
+
   registerRoute(router, '/api', {
     method: 'get',
     path: '/subscription/status',
@@ -50,6 +92,10 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
       200: {
         description: 'Subscription status',
         dataSchema: SubscriptionStatusResponseDataSchema,
+      },
+      401: {
+        description: 'Authentication required',
+        schema: ApiErrorResponseSchema,
       },
     },
     handler: async ({ req, res }) => {
@@ -70,14 +116,20 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         })
         return
       }
-      const since = new Date()
-      since.setUTCDate(since.getUTCDate() - 30)
-      const logs = await vehicleRepo.listMaintenanceForOrganizationInRange({
-        organizationId: orgId,
-        from: since,
-        to: new Date(),
-      })
-      const paywallEligible = logs.length > 0 && user.effectivePlan === 'free'
+      const hasValueEvent = await hasRecentMaintenanceValueEvent(orgId)
+      const paywallEligible = hasValueEvent && user.effectivePlan === 'free'
+      if (paywallEligible) {
+        const platform = req.header('X-Client') === 'mobile' ? 'ios' : 'android'
+        try {
+          await trackSubscriptionEvent({
+            eventName: 'subscription_paywall_viewed',
+            userId: user.id,
+            platform,
+          })
+        } catch {
+          // Avoid failing status reads on analytics instrumentation issues.
+        }
+      }
       commonPresenter.ok(res, {
         organizationPlan: user.organizationPlan,
         effectivePlan: user.effectivePlan,
@@ -92,6 +144,43 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
   })
 
   registerRoute(router, '/api', {
+    method: 'post',
+    path: '/subscription/lifecycle/month2-active',
+    tags: [SUBSCRIPTION_TAG],
+    summary: 'Mark payer as active in month 2 cohort',
+    operationId: 'markSubscriptionMonth2Active',
+    middlewares: [requireReportsRead],
+    responses: {
+      200: {
+        description: 'Month 2 payer active recorded',
+        dataSchema: MarkMonth2ActiveResponseDataSchema,
+      },
+      401: {
+        description: 'Authentication required',
+        schema: ApiErrorResponseSchema,
+      },
+    },
+    handler: async ({ req, res }) => {
+      const user = req.user
+      if (!user?.organizationId) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      const platform = req.header('X-Client') === 'mobile' ? 'ios' : 'android'
+      try {
+        await trackSubscriptionEvent({
+          eventName: 'subscription_month2_active',
+          userId: user.id,
+          platform,
+        })
+      } catch {
+        // Lifecycle tracking should not fail main flow.
+      }
+      commonPresenter.ok(res, { recorded: true })
+    },
+  })
+
+  registerRoute(router, '/api', {
     method: 'get',
     path: '/subscription/offers',
     tags: [SUBSCRIPTION_TAG],
@@ -102,6 +191,10 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
       200: {
         description: 'Subscription offers',
         dataSchema: ListPaywallOffersResponseDataSchema,
+      },
+      401: {
+        description: 'Authentication required',
+        schema: ApiErrorResponseSchema,
       },
     },
     handler: ({ res }) => {
@@ -142,6 +235,18 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         description: 'Trial started',
         dataSchema: StartTrialResponseDataSchema,
       },
+      401: {
+        description: 'Authentication required',
+        schema: ApiErrorResponseSchema,
+      },
+      403: {
+        description: 'Trial blocked until paywall eligibility milestone is reached',
+        schema: ApiErrorResponseSchema,
+      },
+      409: {
+        description: 'Trial unavailable because effective plan is already non-free',
+        schema: ApiErrorResponseSchema,
+      },
     },
     handler: async ({ req, res, body }) => {
       const user = req.user
@@ -149,7 +254,41 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
+      if (user.effectivePlan !== 'free') {
+        commonPresenter.error(
+          res,
+          409,
+          'trial_not_available',
+          'Trial is only available for users on the free plan',
+        )
+        return
+      }
+      const paywallEligible = await hasRecentMaintenanceValueEvent(user.organizationId)
+      if (!paywallEligible) {
+        commonPresenter.error(
+          res,
+          403,
+          'paywall_not_eligible',
+          'Complete a maintenance action before starting a trial',
+        )
+        return
+      }
       await authModule.users.updateOrganizationPlan(user.organizationId, 'premium')
+      const platform = req.header('X-Client') === 'mobile' ? 'ios' : 'android'
+      try {
+        await trackSubscriptionEvent({
+          eventName: 'subscription_trial_started',
+          userId: user.id,
+          platform,
+        })
+        await trackSubscriptionEvent({
+          eventName: 'subscription_converted_to_paid',
+          userId: user.id,
+          platform,
+        })
+      } catch {
+        // Trial flow should not fail when analytics tracking fails.
+      }
       const trialEndsAt = new Date()
       trialEndsAt.setUTCDate(
         trialEndsAt.getUTCDate() + (body?.billingCycle === 'annual' ? 14 : 7),
@@ -175,6 +314,10 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
       200: {
         description: 'Subscription canceled',
         dataSchema: CancelSubscriptionResponseDataSchema,
+      },
+      401: {
+        description: 'Authentication required',
+        schema: ApiErrorResponseSchema,
       },
     },
     handler: async ({ req, res, body }) => {
@@ -227,6 +370,16 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         reason: body?.reason ?? 'unknown',
         feedback: body?.feedback ?? null,
       })
+      const platform = req.header('X-Client') === 'mobile' ? 'ios' : 'android'
+      try {
+        await trackSubscriptionEvent({
+          eventName: 'subscription_refunded',
+          userId: user.id,
+          platform,
+        })
+      } catch {
+        // Cancellation should not fail when analytics tracking fails.
+      }
       commonPresenter.ok(res, {
         canceled: true,
         effectivePlan: 'free',
@@ -246,6 +399,10 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
       200: {
         description: 'Cancellation reasons',
         dataSchema: ListSubscriptionCancelReasonsResponseDataSchema,
+      },
+      401: {
+        description: 'Authentication required',
+        schema: ApiErrorResponseSchema,
       },
     },
     handler: async ({ req, res }) => {
@@ -279,26 +436,14 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         description: 'Retention summary',
         dataSchema: SubscriptionRetentionSummaryResponseDataSchema,
       },
+      401: {
+        description: 'Authentication required',
+        schema: ApiErrorResponseSchema,
+      },
     },
     handler: async ({ res }) => {
-      const rollups = await listDailyRollups()
-      const latest = rollups[rollups.length - 1]
-      const trialStartRatePercent = latest ? Math.min(100, latest.activationCount * 0.25) : 0
-      const trialToPaidPercent = latest ? Math.min(100, latest.d30Retained * 0.2) : 0
-      const month2PayerRetentionPercent = latest ? Math.min(100, latest.d30Retained * 0.35) : 0
-      const refundRatePercent = latest ? Math.max(0, 5 - latest.activationCount * 0.01) : 0
-      const freeTierD30RetentionDeltaPercent = latest ? -Math.min(15, latest.d30Retained * 0.05) : 0
-      commonPresenter.ok(res, {
-        trialStartRatePercent,
-        trialToPaidPercent,
-        month2PayerRetentionPercent,
-        refundRatePercent,
-        freeTierD30RetentionDeltaPercent,
-        notes: [
-          'Summary currently derived from existing analytics rollup signals.',
-          'Replace heuristic mapping with billing-ground-truth metrics in Phase 2 window 3.',
-        ],
-      })
+      const [events, rollups] = await Promise.all([listRawEvents(), listDailyRollups()])
+      commonPresenter.ok(res, buildSubscriptionRetentionSummary(events, rollups))
     },
   })
 
@@ -313,6 +458,14 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
       200: {
         description: 'Report link and hash',
         dataSchema: GenerateReportResponseDataSchema,
+      },
+      401: {
+        description: 'Authentication required',
+        schema: ApiErrorResponseSchema,
+      },
+      403: {
+        description: 'Current plan does not allow this endpoint',
+        schema: ApiErrorResponseSchema,
       },
     },
     handler: ({ res }) => {
@@ -336,6 +489,14 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
       200: {
         description: 'Spend KPI payload',
         dataSchema: SpendKpisResponseDataSchema,
+      },
+      401: {
+        description: 'Authentication required',
+        schema: ApiErrorResponseSchema,
+      },
+      403: {
+        description: 'Current plan does not allow this endpoint',
+        schema: ApiErrorResponseSchema,
       },
     },
     handler: async ({ req, res, query }) => {

@@ -3,7 +3,8 @@ import cookieParser from 'cookie-parser'
 import express from 'express'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import request from 'supertest'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { clearRawEvents } from '../../analytics/repository.js'
 import { errorHandler } from '../../../interfaces/http/middlewares/error-handler.middleware.js'
 import { createAuthModule } from '../../auth/auth-module.js'
 import {
@@ -91,6 +92,64 @@ const buildApp = async (db: NodePgDatabase) => {
 }
 
 describe.skipIf(!process.env.DATABASE_URL)('subscription HTTP integration', () => {
+  beforeEach(async () => {
+    await clearRawEvents()
+  })
+
+  it('returns 401 for protected subscription endpoints without auth', async () => {
+    const db = getAuthDb(process.env.DATABASE_URL as string)
+    const app = await buildApp(db)
+
+    const unauthenticatedRequests = [
+      () => request(app).get('/api/subscription/status').set('X-Client', 'mobile'),
+      () => request(app).get('/api/subscription/offers').set('X-Client', 'mobile'),
+      () =>
+        request(app)
+          .post('/api/subscription/trial/start')
+          .set('X-Client', 'mobile')
+          .send({ billingCycle: 'monthly' }),
+      () =>
+        request(app)
+          .post('/api/subscription/cancel')
+          .set('X-Client', 'mobile')
+          .send({ reason: 'too_expensive' }),
+      () => request(app).get('/api/subscription/cancel-reasons').set('X-Client', 'mobile'),
+      () => request(app).get('/api/subscription/retention-summary').set('X-Client', 'mobile'),
+      () =>
+        request(app)
+          .post('/api/subscription/lifecycle/month2-active')
+          .set('X-Client', 'mobile')
+          .send({}),
+    ]
+
+    for (const run of unauthenticatedRequests) {
+      const response = await run()
+      expect(response.status).toBe(401)
+      expect(response.body?.success).toBe(false)
+      expect(typeof response.body?.error?.code).toBe('string')
+    }
+  })
+
+  it('rejects trial start before value milestone is completed', async () => {
+    const db = getAuthDb(process.env.DATABASE_URL as string)
+    const app = await buildApp(db)
+
+    const reg = await request(app)
+      .post('/auth/register')
+      .set('X-Client', 'mobile')
+      .send({ email: `sub-precheck-${Date.now()}@example.com`, password: 'password123' })
+    expect(reg.status).toBe(201)
+    const token = reg.body.data.tokens.accessToken as string
+
+    const startTrial = await request(app)
+      .post('/api/subscription/trial/start')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ billingCycle: 'monthly', variant: 'window5-guardrail' })
+    expect(startTrial.status).toBe(403)
+    expect(startTrial.body.error.code).toBe('paywall_not_eligible')
+  })
+
   it('starts trial, then cancels and records reason summary', async () => {
     const db = getAuthDb(process.env.DATABASE_URL as string)
     const app = await buildApp(db)
@@ -139,6 +198,14 @@ describe.skipIf(!process.env.DATABASE_URL)('subscription HTTP integration', () =
     expect(startTrial.body.data.started).toBe(true)
     expect(startTrial.body.data.plan).toBe('premium')
 
+    const startTrialAgain = await request(app)
+      .post('/api/subscription/trial/start')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ billingCycle: 'monthly', variant: 'window3-test-repeat' })
+    expect(startTrialAgain.status).toBe(409)
+    expect(startTrialAgain.body.error.code).toBe('trial_not_available')
+
     const cancel = await request(app)
       .post('/api/subscription/cancel')
       .set('X-Client', 'mobile')
@@ -148,6 +215,13 @@ describe.skipIf(!process.env.DATABASE_URL)('subscription HTTP integration', () =
     expect(cancel.body.data.canceled).toBe(true)
     expect(cancel.body.data.effectivePlan).toBe('free')
     expect(cancel.body.data.recordedReason).toBe('too_expensive')
+
+    const month2Active = await request(app)
+      .post('/api/subscription/lifecycle/month2-active')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({})
+    expect(month2Active.status).toBe(200)
 
     const reasonSummary = await request(app)
       .get('/api/subscription/cancel-reasons')
@@ -161,7 +235,105 @@ describe.skipIf(!process.env.DATABASE_URL)('subscription HTTP integration', () =
       .set('X-Client', 'mobile')
       .set('Authorization', `Bearer ${token}`)
     expect(retentionSummary.status).toBe(200)
+    expect(retentionSummary.body.data.trialStartRatePercent).toBe(100)
+    expect(retentionSummary.body.data.trialToPaidPercent).toBe(100)
+    expect(retentionSummary.body.data.month2PayerRetentionPercent).toBe(100)
+    expect(retentionSummary.body.data.refundRatePercent).toBe(100)
     expect(typeof retentionSummary.body.data.trialStartRatePercent).toBe('number')
     expect(Array.isArray(retentionSummary.body.data.notes)).toBe(true)
+  })
+
+  it('computes retention summary metrics from multiple payer flows', async () => {
+    const db = getAuthDb(process.env.DATABASE_URL as string)
+    const app = await buildApp(db)
+
+    const registerUser = async (email: string) => {
+      const reg = await request(app)
+        .post('/auth/register')
+        .set('X-Client', 'mobile')
+        .send({ email, password: 'password123' })
+      expect(reg.status).toBe(201)
+      return reg.body.data.tokens.accessToken as string
+    }
+
+    const completeValueMilestone = async (token: string, vinSeed: string) => {
+      const createdVehicle = await request(app)
+        .post('/api/vehicles')
+        .set('X-Client', 'mobile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          make: 'Toyota',
+          model: 'Corolla',
+          year: 2021,
+          vin: `TY${vinSeed}`,
+        })
+      expect(createdVehicle.status).toBe(201)
+      const vehicleId = createdVehicle.body.data.id as string
+
+      const maintenance = await request(app)
+        .post(`/api/vehicles/${vehicleId}/maintenance`)
+        .set('X-Client', 'mobile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ odometer: 12000, category: 'Oil', description: 'Value milestone' })
+      expect(maintenance.status).toBe(201)
+    }
+
+    const tokenA = await registerUser(`sub-multi-a-${Date.now()}@example.com`)
+    await completeValueMilestone(tokenA, `${Date.now().toString(36)}a`)
+
+    const statusA = await request(app)
+      .get('/api/subscription/status')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${tokenA}`)
+    expect(statusA.status).toBe(200)
+    expect(statusA.body.data.paywallEligible).toBe(true)
+
+    const trialA = await request(app)
+      .post('/api/subscription/trial/start')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ billingCycle: 'monthly', variant: 'multi-user-a' })
+    expect(trialA.status).toBe(200)
+
+    const month2A = await request(app)
+      .post('/api/subscription/lifecycle/month2-active')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({})
+    expect(month2A.status).toBe(200)
+
+    const cancelA = await request(app)
+      .post('/api/subscription/cancel')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ reason: 'too_expensive' })
+    expect(cancelA.status).toBe(200)
+
+    const tokenB = await registerUser(`sub-multi-b-${Date.now()}@example.com`)
+    await completeValueMilestone(tokenB, `${Date.now().toString(36)}b`)
+
+    const statusB = await request(app)
+      .get('/api/subscription/status')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${tokenB}`)
+    expect(statusB.status).toBe(200)
+    expect(statusB.body.data.paywallEligible).toBe(true)
+
+    const trialB = await request(app)
+      .post('/api/subscription/trial/start')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${tokenB}`)
+      .send({ billingCycle: 'annual', variant: 'multi-user-b' })
+    expect(trialB.status).toBe(200)
+
+    const summary = await request(app)
+      .get('/api/subscription/retention-summary')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${tokenB}`)
+    expect(summary.status).toBe(200)
+    expect(summary.body.data.trialStartRatePercent).toBe(100)
+    expect(summary.body.data.trialToPaidPercent).toBe(100)
+    expect(summary.body.data.month2PayerRetentionPercent).toBe(50)
+    expect(summary.body.data.refundRatePercent).toBe(50)
   })
 })

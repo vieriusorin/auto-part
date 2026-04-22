@@ -76,6 +76,13 @@ describe('OpenAPI registry contract', () => {
       'estimateFairPrice',
       'generateReport',
       'getSpendKpis',
+      'getSubscriptionStatus',
+      'listSubscriptionOffers',
+      'startSubscriptionTrial',
+      'cancelSubscription',
+      'markSubscriptionMonth2Active',
+      'listSubscriptionCancelReasons',
+      'getSubscriptionRetentionSummary',
       'listAuditLogs',
       'getWashSuggestion',
       'checkLezRule',
@@ -113,5 +120,142 @@ describe('OpenAPI registry contract', () => {
     expect(document.openapi).toBe('3.1.0')
     expect(document.paths).toBeTruthy()
     expect(Object.keys(document.paths ?? {}).length).toBeGreaterThan(0)
+  })
+
+  it('includes contract for month2 lifecycle subscription endpoint', () => {
+    const document = buildOpenApiDocument({
+      title: 'Autocare API',
+      version: '0.0.0-test',
+      description: 'test',
+      serverUrl: '/api',
+    })
+
+    const lifecyclePath = document.paths?.['/api/subscription/lifecycle/month2-active']
+    expect(lifecyclePath).toBeTruthy()
+    expect(lifecyclePath?.post?.operationId).toBe('markSubscriptionMonth2Active')
+    const schema = lifecyclePath?.post?.responses?.['200']?.content?.['application/json']?.schema as
+      | {
+          properties?: {
+            data?: {
+              properties?: {
+                recorded?: {
+                  enum?: unknown[]
+                }
+              }
+            }
+          }
+        }
+      | undefined
+    expect(schema?.properties?.data?.properties?.recorded?.enum).toEqual([true])
+  })
+
+  it('documents trial-start negative responses for eligibility and plan state', () => {
+    const document = buildOpenApiDocument({
+      title: 'Autocare API',
+      version: '0.0.0-test',
+      description: 'test',
+      serverUrl: '/api',
+    })
+
+    const trialStartPath = document.paths?.['/api/subscription/trial/start']?.post
+    expect(trialStartPath).toBeTruthy()
+    expect(trialStartPath?.responses?.['403']).toBeTruthy()
+    expect(trialStartPath?.responses?.['409']).toBeTruthy()
+  })
+
+  it('uses canonical API error schema for trial-start 401/403/409 responses', () => {
+    const document = buildOpenApiDocument({
+      title: 'Autocare API',
+      version: '0.0.0-test',
+      description: 'test',
+      serverUrl: '/api',
+    })
+
+    const trialStartPath = document.paths?.['/api/subscription/trial/start']?.post
+    expect(trialStartPath).toBeTruthy()
+
+    const statuses = ['401', '403', '409'] as const
+    for (const status of statuses) {
+      const schema = trialStartPath?.responses?.[status]?.content?.['application/json']?.schema as
+        | {
+            properties?: {
+              success?: { enum?: unknown[] }
+              error?: {
+                type?: string
+                required?: string[]
+                properties?: {
+                  code?: { type?: string }
+                  message?: { type?: string }
+                }
+              }
+            }
+            required?: string[]
+          }
+        | undefined
+
+      expect(schema).toBeTruthy()
+      expect(schema?.required).toEqual(expect.arrayContaining(['success', 'error']))
+      expect(schema?.properties?.success?.enum).toEqual([false])
+      expect(schema?.properties?.error?.type).toBe('object')
+      expect(schema?.properties?.error?.required).toEqual(expect.arrayContaining(['code', 'message']))
+      expect(schema?.properties?.error?.properties?.code?.type).toBe('string')
+      expect(schema?.properties?.error?.properties?.message?.type).toBe('string')
+    }
+  })
+
+  it('documents 401 responses for protected subscription endpoints', () => {
+    const document = buildOpenApiDocument({
+      title: 'Autocare API',
+      version: '0.0.0-test',
+      description: 'test',
+      serverUrl: '/api',
+    })
+
+    const protectedOperations = [
+      document.paths?.['/api/subscription/status']?.get,
+      document.paths?.['/api/subscription/offers']?.get,
+      document.paths?.['/api/subscription/trial/start']?.post,
+      document.paths?.['/api/subscription/cancel']?.post,
+      document.paths?.['/api/subscription/cancel-reasons']?.get,
+      document.paths?.['/api/subscription/retention-summary']?.get,
+      document.paths?.['/api/subscription/lifecycle/month2-active']?.post,
+    ]
+
+    for (const operation of protectedOperations) {
+      expect(operation).toBeTruthy()
+      expect(operation?.responses?.['401']).toBeTruthy()
+    }
+  })
+
+  it('documents 403 plan-gated responses for reports premium endpoints', () => {
+    const document = buildOpenApiDocument({
+      title: 'Autocare API',
+      version: '0.0.0-test',
+      description: 'test',
+      serverUrl: '/api',
+    })
+
+    const reportGenerate = document.paths?.['/api/reports/generate']?.post
+    const spendKpis = document.paths?.['/api/v1/kpis/spend']?.get
+    expect(reportGenerate).toBeTruthy()
+    expect(spendKpis).toBeTruthy()
+    expect(reportGenerate?.responses?.['403']).toBeTruthy()
+    expect(spendKpis?.responses?.['403']).toBeTruthy()
+  })
+
+  it('documents 401 auth responses for reports premium endpoints', () => {
+    const document = buildOpenApiDocument({
+      title: 'Autocare API',
+      version: '0.0.0-test',
+      description: 'test',
+      serverUrl: '/api',
+    })
+
+    const reportGenerate = document.paths?.['/api/reports/generate']?.post
+    const spendKpis = document.paths?.['/api/v1/kpis/spend']?.get
+    expect(reportGenerate).toBeTruthy()
+    expect(spendKpis).toBeTruthy()
+    expect(reportGenerate?.responses?.['401']).toBeTruthy()
+    expect(spendKpis?.responses?.['401']).toBeTruthy()
   })
 })

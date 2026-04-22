@@ -43,6 +43,48 @@ scope: window-3 (retention summary hardening + subscription endpoint integration
 
 ---
 
+## Window 5-22 Verification Addendum
+
+### Verdict
+**PASS (for planned window scope).**
+
+### Verified outcomes
+1. Paywall guardrails are enforced server-side (`403 paywall_not_eligible`, `409 trial_not_available`) and reflected in mobile UX.
+2. Retention summary now derives from billing events plus explicit free-tier pre/post paywall rollup cohorts.
+3. Month-2 payer lifecycle is implemented end-to-end (server route, shared contract, api-client hook, mobile trigger).
+4. Subscription and report endpoint OpenAPI contracts now include explicit `401/403/409` coverage and stricter error schema assertions.
+5. Access-control runtime tests validate unauthenticated/free/premium matrices for report surfaces.
+
+### Evidence
+- Runtime + analytics:
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+  - `apps/server/src/modules/reports/application/subscription-retention-summary.ts`
+  - `apps/server/src/modules/reports/__tests__/subscription-retention-summary.test.ts`
+  - `apps/server/src/modules/reports/__tests__/subscription-http.integration.test.ts`
+- OpenAPI + access control:
+  - `apps/server/src/interfaces/http/openapi/__tests__/registry.contract.test.ts`
+  - `apps/server/src/interfaces/http/__tests__/access-control.integration.test.ts`
+  - `apps/server/src/interfaces/http/__tests__/test-helpers.ts`
+- Client/mobile:
+  - `packages/shared/src/contracts/subscription.ts`
+  - `packages/api-client/src/react/hooks.ts`
+  - `packages/api-client/src/react/index.ts`
+  - `packages/api-client/src/react/hooks.test.ts`
+  - `apps/mobile/app/(tabs)/insights/index.tsx`
+  - `apps/mobile/app/(tabs)/costs/index.tsx`
+
+### Commands and outcomes
+- `npm run db:migrate` -> **PASS**
+- `npm run db:seed` -> **PASS**
+- `npm run db:verify:hybrid` -> **PASS**
+- `npm run typecheck -w @autocare/server` -> **PASS**
+- `npm run test:vitest -w @autocare/server` -> **PASS**
+- `npm run typecheck -w @autocare/api-client` -> **PASS**
+- `npm run test:vitest -w @autocare/api-client` -> **PASS**
+- `npm run typecheck -w @autocare/mobile` -> **PASS**
+
+---
+
 ## Window 4 Verification Addendum (Hybrid-ID Reliability Hardening)
 
 ### Verdict

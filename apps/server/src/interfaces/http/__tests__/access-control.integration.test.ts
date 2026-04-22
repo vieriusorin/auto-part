@@ -13,6 +13,7 @@ import {
 } from '../../../modules/auth/__tests__/test-helpers.js'
 import { errorHandler } from '../middlewares/error-handler.middleware.js'
 import { createHttpRoutes } from '../routes.js'
+import { createNoopDb } from './test-helpers.js'
 
 const makeEnv = (overrides: Partial<ServerEnv> = {}): ServerEnv =>
   ({
@@ -77,7 +78,7 @@ const buildApp = async () => {
     users,
     refreshTokens: createInMemoryRefreshRepo(),
     organizationInvites: createInMemoryOrganizationInviteRepo(),
-    db: {} as never,
+    db: createNoopDb() as never,
   })
   const container = createAppContainer(authModule)
 
@@ -173,5 +174,106 @@ describe('HTTP access control', () => {
       .set('X-Client', 'mobile')
       .set('Authorization', `Bearer ${userAccount.token}`)
     expect(allowed.status).toBe(200)
+  })
+
+  it('enforces premium plan for reports surfaces with explicit plan errors', async () => {
+    const { app, users } = await buildApp()
+    const account = await registerAndGetToken(app, 'reports-plan-check@example.com')
+
+    const reportForbidden = await request(app)
+      .post('/api/reports/generate')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${account.token}`)
+      .send({})
+    expect(reportForbidden.status).toBe(403)
+    expect(reportForbidden.body.error.code).toBe('forbidden_plan')
+
+    const spendForbidden = await request(app)
+      .get('/api/v1/kpis/spend')
+      .query({
+        from: '2026-04-01T00:00:00.000Z',
+        to: '2026-04-30T00:00:00.000Z',
+        granularity: 'week',
+      })
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${account.token}`)
+    expect(spendForbidden.status).toBe(403)
+    expect(spendForbidden.body.error.code).toBe('forbidden_plan')
+
+    users._setOrganizationPlan(account.organizationId, 'premium')
+
+    const reportAllowed = await request(app)
+      .post('/api/reports/generate')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${account.token}`)
+      .send({})
+    expect(reportAllowed.status).toBe(200)
+
+    const spendAllowed = await request(app)
+      .get('/api/v1/kpis/spend')
+      .query({
+        from: '2026-04-01T00:00:00.000Z',
+        to: '2026-04-30T00:00:00.000Z',
+        granularity: 'week',
+      })
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${account.token}`)
+    expect(spendAllowed.status).toBe(200)
+  })
+
+  it('enforces report endpoint access matrix (unauthenticated/free/premium)', async () => {
+    const { app, users } = await buildApp()
+    const account = await registerAndGetToken(app, 'reports-access-matrix@example.com')
+
+    const cases = [
+      {
+        name: 'reports.generate',
+        unauthenticated: () => request(app).post('/api/reports/generate').set('X-Client', 'mobile').send({}),
+        authenticated: () =>
+          request(app)
+            .post('/api/reports/generate')
+            .set('X-Client', 'mobile')
+            .set('Authorization', `Bearer ${account.token}`)
+            .send({}),
+      },
+      {
+        name: 'kpis.spend',
+        unauthenticated: () =>
+          request(app)
+            .get('/api/v1/kpis/spend')
+            .query({
+              from: '2026-04-01T00:00:00.000Z',
+              to: '2026-04-30T00:00:00.000Z',
+              granularity: 'week',
+            })
+            .set('X-Client', 'mobile'),
+        authenticated: () =>
+          request(app)
+            .get('/api/v1/kpis/spend')
+            .query({
+              from: '2026-04-01T00:00:00.000Z',
+              to: '2026-04-30T00:00:00.000Z',
+              granularity: 'week',
+            })
+            .set('X-Client', 'mobile')
+            .set('Authorization', `Bearer ${account.token}`),
+      },
+    ] as const
+
+    for (const testCase of cases) {
+      const unauthenticated = await testCase.unauthenticated()
+      expect(unauthenticated.status, `${testCase.name} unauthenticated`).toBe(401)
+
+      const freePlan = await testCase.authenticated()
+      expect(freePlan.status, `${testCase.name} free`).toBe(403)
+      expect(freePlan.body.error.code, `${testCase.name} free code`).toBe('forbidden_plan')
+    }
+
+    users._setOrganizationPlan(account.organizationId, 'premium')
+
+    for (const testCase of cases) {
+      const premium = await testCase.authenticated()
+      expect(premium.status, `${testCase.name} premium status`).toBe(200)
+    }
   })
 })

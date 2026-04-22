@@ -70,6 +70,7 @@ type SubscriptionStatus = SuccessData<operations['getSubscriptionStatus']>
 type SubscriptionOffers = SuccessData<operations['listSubscriptionOffers']>
 type StartedTrial = SuccessData<operations['startSubscriptionTrial']>
 type CanceledSubscription = SuccessData<operations['cancelSubscription']>
+type MarkedMonth2Active = SuccessData<operations['markSubscriptionMonth2Active']>
 type CancelReasonsSummary = SuccessData<operations['listSubscriptionCancelReasons']>
 type SubscriptionRetentionSummary = SuccessData<operations['getSubscriptionRetentionSummary']>
 
@@ -721,6 +722,25 @@ export const useCancelSubscription = (
     },
     onSuccess: (...args) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.subscription.status() })
+      options?.onSuccess?.(...args)
+    },
+    ...options,
+  })
+}
+
+export const useMarkSubscriptionMonth2Active = (
+  options?: UseMutationOptions<MarkedMonth2Active, unknown, void>,
+) => {
+  const client = useApiClient()
+  const queryClient = useQueryClient()
+  return useMutation<MarkedMonth2Active, unknown, void>({
+    mutationFn: async () => {
+      const { data, error } = await client.POST('/api/subscription/lifecycle/month2-active', {})
+      if (error) throw error
+      return unwrap<MarkedMonth2Active>(data)
+    },
+    onSuccess: (...args) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.subscription.retentionSummary() })
       options?.onSuccess?.(...args)
     },
     ...options,

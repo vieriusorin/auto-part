@@ -46,6 +46,8 @@ const CostsScreen = () => {
       <View style={{ marginTop: 16, gap: 8 }}>
         <Text style={{ fontSize: 18, fontWeight: '600' }}>Subscription</Text>
         {subscription.isLoading ? <ActivityIndicator /> : null}
+        {startTrial.error ? <Text>Unable to start trial. Check eligibility and try again.</Text> : null}
+        {cancelSubscription.error ? <Text>Unable to cancel subscription right now.</Text> : null}
         {subscription.data ? (
           <>
             <Text>Current plan: {subscription.data.effectivePlan}</Text>
@@ -68,12 +70,12 @@ const CostsScreen = () => {
             </Text>
             <Pressable
               onPress={() => startTrial.mutate({ billingCycle: offer.billingCycle, variant: offers.data?.variant })}
-              disabled={startTrial.isPending}
+              disabled={startTrial.isPending || !subscription.data?.paywallEligible}
               style={{
                 alignSelf: 'flex-start',
                 backgroundColor: '#111827',
                 borderRadius: 8,
-                opacity: startTrial.isPending ? 0.6 : 1,
+                opacity: startTrial.isPending || !subscription.data?.paywallEligible ? 0.6 : 1,
                 paddingHorizontal: 10,
                 paddingVertical: 8,
               }}

@@ -57,6 +57,7 @@ Aligned to Phase 1 sequencing in `.planning/phases/phase-1-mvp-pmf-probe.md`:
 - No ads before retention proof.
 - No aggressive paywalls before meaningful maintenance value event.
 - Trust controls (consent, auditability, server policy enforcement) are in-scope foundation work.
+- Development workflow preference: use TDD (tests-first) for each implementation step.
 
 ### Open decisions
 - Initial launch countries and primary language ordering.

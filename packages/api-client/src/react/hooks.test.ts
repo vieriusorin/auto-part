@@ -25,6 +25,7 @@ import { queryKeys } from '../query-keys.js'
 import {
   useCreateVehicleDocument,
   useCreateVehicleReminder,
+  useMarkSubscriptionMonth2Active,
   useUpsertVehicleMember,
   useUpdateVehicleReminder,
   useVehicleDocuments,
@@ -164,6 +165,27 @@ describe('vehicle reminder hooks', () => {
     })
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: [...queryKeys.vehicles.detail('vehicle-91'), 'members'],
+    })
+  })
+
+  it('invalidates subscription retention summary after marking month2 active', async () => {
+    postMock.mockResolvedValue({
+      data: { success: true, data: { recorded: true } },
+      error: null,
+    })
+    useMutationMock.mockImplementation(
+      (options: { mutationFn: (body: unknown) => Promise<unknown>; onSuccess: () => void }) => options,
+    )
+
+    const markMonth2 = useMarkSubscriptionMonth2Active() as unknown as {
+      mutationFn: () => Promise<unknown>
+      onSuccess: () => void
+    }
+    await markMonth2.mutationFn()
+    markMonth2.onSuccess()
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: queryKeys.subscription.retentionSummary(),
     })
   })
 })

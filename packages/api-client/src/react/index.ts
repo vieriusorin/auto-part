@@ -20,6 +20,7 @@ export {
   useDismissBanner,
   useEstimateFairPrice,
   useLezCheck,
+  useMarkSubscriptionMonth2Active,
   useSpendKpis,
   useStartSubscriptionTrial,
   useSubscriptionCancelReasons,
