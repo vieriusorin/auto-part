@@ -49,20 +49,20 @@
 | TRUST-01 | Phase 0 | Complete |
 | TRUST-02 | Phase 0 | Complete |
 | TRUST-03 | Phase 0 | Complete |
-| MVP-01 | Phase 1 | Pending |
-| MVP-02 | Phase 1 | Pending |
-| MVP-03 | Phase 1 | Pending |
-| MVP-04 | Phase 1 | Pending |
-| MVP-05 | Phase 1 | Pending |
-| MVP-06 | Phase 1 | Pending |
-| MVP-07 | Phase 1 | Pending |
-| MVP-08 | Phase 1 | Pending |
-| MVP-09 | Phase 1 | Pending |
-| MVP-10 | Phase 1 | Pending |
-| SUB-01 | Phase 2 | Pending |
-| SUB-02 | Phase 2 | Pending |
-| SUB-03 | Phase 2 | Pending |
-| SUB-04 | Phase 2 | Pending |
+| MVP-01 | Phase 1 | Implemented (engineering) |
+| MVP-02 | Phase 1 | Implemented (engineering) |
+| MVP-03 | Phase 1 | Implemented (engineering) |
+| MVP-04 | Phase 1 | Implemented (engineering) |
+| MVP-05 | Phase 1 | Implemented (engineering) |
+| MVP-06 | Phase 1 | Implemented (engineering) |
+| MVP-07 | Phase 1 | Implemented (engineering) |
+| MVP-08 | Phase 1 | Implemented (engineering) |
+| MVP-09 | Phase 1 | Implemented (engineering) |
+| MVP-10 | Phase 1 | Implemented (engineering) |
+| SUB-01 | Phase 2 | In progress (windows 1-3 baseline/depth implemented) |
+| SUB-02 | Phase 2 | In progress (windows 1-3 baseline/depth implemented) |
+| SUB-03 | Phase 2 | In progress (windows 1-3 baseline/depth implemented) |
+| SUB-04 | Phase 2 | In progress (windows 1-3 baseline/depth implemented) |
 | AFF-01 | Phase 3 | Pending |
 | AFF-02 | Phase 3 | Pending |
 | AFF-03 | Phase 3 | Pending |

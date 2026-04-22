@@ -17,6 +17,7 @@ import { subscriptionCancellation, users } from '@autocare/db'
 import { commonPresenter } from '../../../../presenters/common.presenter.js'
 import { registerRoute } from '../../../../interfaces/http/openapi/index.js'
 import type { AuthModule } from '../../../auth/auth-module.js'
+import { createAuthHttpGuards } from '../../../auth/interfaces/http/auth-http-guards.js'
 import { createRequirePermissionMiddleware } from '../../../auth/interfaces/http/require-permission.middleware.js'
 import { createRequirePlanMiddleware } from '../../../auth/interfaces/http/require-plan.middleware.js'
 import { computePreviousWindow, buildSpendKpis } from '../../application/spend-kpis.js'
@@ -29,8 +30,13 @@ const SUBSCRIPTION_TAG = 'Subscription'
 
 export const createReportRouter = (authModule?: AuthModule): Router => {
   const router = Router()
-  const requireReportsRead = createRequirePermissionMiddleware('reports.read')
-  const requirePremium = createRequirePlanMiddleware({ minimumPlan: 'premium' })
+  const authGuards = authModule ? createAuthHttpGuards(authModule) : null
+  const requireReportsRead = authGuards
+    ? authGuards.requirePermission('reports.read')
+    : createRequirePermissionMiddleware('reports.read')
+  const requirePremium = authGuards
+    ? authGuards.requirePlan({ minimumPlan: 'premium' })
+    : createRequirePlanMiddleware({ minimumPlan: 'premium' })
   const vehicleRepo = authModule ? createVehicleRepository(authModule.db) : null
 
   registerRoute(router, '/api', {
@@ -139,7 +145,7 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
     },
     handler: async ({ req, res, body }) => {
       const user = req.user
-      if (!user || !user.organizationId || !authModule) {
+      if (!user?.organizationId || !authModule) {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
@@ -173,17 +179,42 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
     },
     handler: async ({ req, res, body }) => {
       const user = req.user
-      if (!user || !user.organizationId || !authModule) {
+      if (!user?.organizationId || !authModule) {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
       await authModule.users.updateOrganizationPlan(user.organizationId, 'free')
       await authModule.users.updatePlanOverride(user.id, null)
-      const userRows = await authModule.db
+      let userRows = await authModule.db
         .select({ idInt: users.idInt })
         .from(users)
         .where(eq(users.id, user.id))
         .limit(1)
+      if (!userRows[0]) {
+        const inserted = await authModule.db
+          .insert(users)
+          .values({
+            id: user.id,
+            email: user.email,
+            passwordHash: 'in-memory-auth-placeholder',
+            role: user.role,
+            organizationId: user.organizationId,
+            planOverride: user.planOverride ?? null,
+            organizationRole: 'owner',
+            emailVerifiedAt: new Date(),
+          })
+          .onConflictDoNothing({ target: users.id })
+          .returning({ idInt: users.idInt })
+        if (inserted[0]) {
+          userRows = inserted
+        } else {
+          userRows = await authModule.db
+            .select({ idInt: users.idInt })
+            .from(users)
+            .where(eq(users.id, user.id))
+            .limit(1)
+        }
+      }
       const userIdInt = userRows[0]?.idInt
       if (userIdInt === undefined || userIdInt === null) {
         commonPresenter.error(res, 400, 'invalid_user', 'Unable to resolve internal user id')

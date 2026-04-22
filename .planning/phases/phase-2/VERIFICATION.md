@@ -40,3 +40,36 @@ scope: window-3 (retention summary hardening + subscription endpoint integration
 ## Notes
 - `npm run db:migrate -w @autocare/db` failed in this environment due to unresolved DB host (`postgres`).
 - DB-backed subscription integration test is guarded with `describe.skipIf(!process.env.DATABASE_URL)`.
+
+---
+
+## Window 4 Verification Addendum (Hybrid-ID Reliability Hardening)
+
+### Verdict
+**PASS (for planned window scope).**
+
+### Verified outcomes
+1. Hybrid ID migrations (`0011`, `0012`) apply cleanly and preserve UUID external contract.
+2. Seed data now produces valid BIGINT shadow FK consistency for vehicles/auth/banners/subscription pathways.
+3. Runtime verification script confirms `id_int` and `*_id_int` integrity across pilot and extension tables.
+4. Server integration paths remain stable after auth guard alignment and `subscription/cancel` persistence hardening.
+
+### Evidence
+- Migrations:
+  - `packages/db/src/migrations/0011_hybrid_ids_vehicle_pilot.sql`
+  - `packages/db/src/migrations/0012_hybrid_ids_auth_banner.sql`
+- Verification script:
+  - `apps/server/scripts/db-verify-hybrid.ts`
+- Runtime hardening:
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+  - `apps/server/src/modules/vehicles/infrastructure/vehicle-repository.ts`
+  - `apps/server/src/modules/auth/infrastructure/refresh-token-repository.ts`
+  - `apps/server/src/modules/auth/infrastructure/organization-invite-repository.ts`
+  - `apps/server/src/modules/banners/infrastructure/banner-repository.ts`
+
+### Commands and outcomes
+- `npm run db:migrate` -> **PASS**
+- `npm run db:seed` -> **PASS**
+- `npm run db:verify:hybrid` -> **PASS**
+- `npm run typecheck -w @autocare/server` -> **PASS**
+- `npm run test:vitest -w @autocare/server` -> **PASS**

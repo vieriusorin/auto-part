@@ -56,3 +56,38 @@ Implemented in working tree; locally verified.
 - `npm run typecheck -w @autocare/mobile` -> PASS
 - `npm run test:vitest -w @autocare/api-client` -> PASS
 - `npm run test:vitest -w @autocare/mobile` -> PASS
+
+---
+
+## Window 4 execution (hybrid-ID reliability hardening)
+
+### Implemented
+- Planning and migration artifacts:
+  - `.planning/database/hybrid-id-inventory.md`
+  - `.planning/database/hybrid-id-migration-variants.md`
+  - `.planning/database/hybrid-id-adapters-and-validation.md`
+  - `packages/db/src/migrations/0011_hybrid_ids_vehicle_pilot.sql`
+  - `packages/db/src/migrations/0012_hybrid_ids_auth_banner.sql`
+- DB schema and seed updates for UUID public ID + BIGINT internal ID dual path:
+  - `packages/db/src/schema.ts`
+  - `packages/db/src/schemas/users.ts`
+  - `packages/db/src/schemas/banners.ts`
+  - `apps/server/scripts/db-seed.ts`
+  - `apps/server/scripts/db-verify-hybrid.ts`
+- Repository and route hardening for `id_int`/`*_id_int` consistency:
+  - `apps/server/src/modules/vehicles/infrastructure/vehicle-repository.ts`
+  - `apps/server/src/modules/auth/infrastructure/refresh-token-repository.ts`
+  - `apps/server/src/modules/auth/infrastructure/organization-invite-repository.ts`
+  - `apps/server/src/modules/banners/infrastructure/banner-repository.ts`
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+
+### Verification
+- `npm run db:migrate` -> PASS (applied through `0012_hybrid_ids_auth_banner.sql`)
+- `npm run db:seed` -> PASS
+- `npm run db:verify:hybrid` -> PASS
+- `npm run typecheck -w @autocare/server` -> PASS
+- `npm run test:vitest -w @autocare/server` -> PASS
+
+### Notes
+- Report routes were aligned to auth guard usage via `createAuthHttpGuards(...)` so permission/plan checks consistently enforce authenticated context.
+- Subscription cancel now tolerates DB-missing test users by resolving or creating the `users` row before writing `subscription_cancellations.user_id_int`.

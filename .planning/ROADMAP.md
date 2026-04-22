@@ -7,8 +7,8 @@
 
 ## Phases
 - [x] **Phase 0: Instrumentation + Trust Baseline** - Establish measurable funnels, consent evidence, and integrity primitives before feature scaling.
-- [ ] **Phase 1: MVP PMF Probe (Maintenance Loop)** - Deliver the core maintenance workflow that drives repeat user value. *(Execution started: auth stack + clients; maintenance loop deliverables still open.)*
-- [ ] **Phase 2: Subscription Fit** - Add paid depth only after retention proof and protect free-tier health.
+- [ ] **Phase 1: MVP PMF Probe (Maintenance Loop)** - Deliver the core maintenance workflow that drives repeat user value. *(Engineering scope complete; KPI/business closeout still pending.)*
+- [ ] **Phase 2: Subscription Fit** - Add paid depth only after retention proof and protect free-tier health. *(Execution in progress: windows 1-3 implemented and verified.)*
 - [ ] **Phase 3: Trust-Safe Affiliate Layer** - Introduce high-intent partner monetization with explicit disclosure and consent-safe attribution.
 - [ ] **Phase 4: Optional Ads Fallback** - Run reversible, low-density ad tests only if they do not damage retention or trust.
 
@@ -139,8 +139,8 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 0. Instrumentation + Trust Baseline | 1/1 | Complete | 2026-04-17 |
-| 1. MVP PMF Probe (Maintenance Loop) | 1/1 | In progress (window 1 executed: `.planning/phases/phase-1/EXECUTION.md`; reminders/forecast/viewer still pending) | - |
-| 2. Subscription Fit | 0/1 | Not started | - |
+| 1. MVP PMF Probe (Maintenance Loop) | 1/1 | Engineering complete (KPI/business closeout pending) | - |
+| 2. Subscription Fit | 1/1 | In progress (windows 1-3 executed: `.planning/phases/phase-2/EXECUTION.md`; retention KPI evidence still pending) | - |
 | 3. Trust-Safe Affiliate Layer | 0/1 | Not started | - |
 | 4. Optional Ads Fallback | 0/1 | Not started | - |
 
