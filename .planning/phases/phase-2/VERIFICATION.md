@@ -147,3 +147,29 @@ scope: window-3 (retention summary hardening + subscription endpoint integration
 - `npm run test:vitest -w @autocare/server -- src/interfaces/http/openapi/__tests__/registry.contract.test.ts` -> **PASS**
 - `npm run test:vitest -w @autocare/server -- src/modules/reports/__tests__/subscription-analytics-context.test.ts` -> **PASS**
 - `npm run test:vitest -w @autocare/server` -> **PASS** (`23` files, `80` passed, `12` skipped)
+
+---
+
+## Window 28-31 Verification Addendum
+
+### Verdict
+**PASS (for planned window scope).**
+
+### Verified outcomes
+1. Full server regression remains stable after windows 28-31 hardening.
+2. Retention summary endpoint now scopes analytics events to organization users (with deterministic test-harness fallback to current user).
+3. Subscription integration coverage includes organization-scope isolation expectations.
+4. Report spend route null-safety warnings were eliminated without behavior regression.
+
+### Evidence
+- Runtime logic:
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+- Integration coverage:
+  - `apps/server/src/modules/reports/__tests__/subscription-http.integration.test.ts`
+- Supporting docs:
+  - `.planning/phases/phase-2/EXECUTION.md`
+
+### Commands and outcomes
+- `npm run typecheck -w @autocare/server` -> **PASS**
+- `npm run test:vitest -w @autocare/server -- src/modules/reports/__tests__/subscription-http.integration.test.ts` -> **PASS**
+- `npm run test:vitest -w @autocare/server` -> **PASS** (`23` files, `81` passed, `12` skipped)

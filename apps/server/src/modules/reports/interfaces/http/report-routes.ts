@@ -455,9 +455,26 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         schema: ApiErrorResponseSchema,
       },
     },
-    handler: async ({ res }) => {
-      const [events, rollups] = await Promise.all([listRawEvents(), listDailyRollups()])
-      commonPresenter.ok(res, buildSubscriptionRetentionSummary(events, rollups))
+    handler: async ({ req, res }) => {
+      const orgId = req.user?.organizationId
+      const currentUserId = req.user?.id
+      if (!orgId || !authModule || !currentUserId) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      const [events, rollups, orgUsers] = await Promise.all([
+        listRawEvents(),
+        listDailyRollups(),
+        authModule.db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.organizationId, orgId)),
+      ])
+      const orgUserIds = new Set(
+        orgUsers.length > 0 ? orgUsers.map((userRow) => userRow.id) : [currentUserId],
+      )
+      const orgEvents = events.filter((event) => event.userId && orgUserIds.has(event.userId))
+      commonPresenter.ok(res, buildSubscriptionRetentionSummary(orgEvents, rollups))
     },
   })
 

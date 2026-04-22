@@ -333,8 +333,8 @@ describe.skipIf(!process.env.DATABASE_URL)('subscription HTTP integration', () =
     expect(summary.status).toBe(200)
     expect(summary.body.data.trialStartRatePercent).toBe(100)
     expect(summary.body.data.trialToPaidPercent).toBe(100)
-    expect(summary.body.data.month2PayerRetentionPercent).toBe(50)
-    expect(summary.body.data.refundRatePercent).toBe(50)
+    expect(summary.body.data.month2PayerRetentionPercent).toBe(0)
+    expect(summary.body.data.refundRatePercent).toBe(0)
   })
 
   it('tracks subscription events with request analytics context', async () => {
@@ -544,5 +544,76 @@ describe.skipIf(!process.env.DATABASE_URL)('subscription HTTP integration', () =
       expect(event.sessionId).toBe('session-lifecycle-context')
       expect(event.deviceId).toBe('device-lifecycle-context')
     }
+  })
+
+  it('scopes retention summary to current organization users', async () => {
+    const db = getAuthDb(process.env.DATABASE_URL as string)
+    const app = await buildApp(db)
+
+    const registerAndSeedValueEvent = async (email: string) => {
+      const reg = await request(app)
+        .post('/auth/register')
+        .set('X-Client', 'mobile')
+        .send({ email, password: 'password123' })
+      expect(reg.status).toBe(201)
+      const token = reg.body.data.tokens.accessToken as string
+
+      const createdVehicle = await request(app)
+        .post('/api/vehicles')
+        .set('X-Client', 'mobile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          make: 'BMW',
+          model: '320',
+          year: 2021,
+          vin: `BM${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+        })
+      expect(createdVehicle.status).toBe(201)
+      const vehicleId = createdVehicle.body.data.id as string
+
+      const maintenance = await request(app)
+        .post(`/api/vehicles/${vehicleId}/maintenance`)
+        .set('X-Client', 'mobile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ odometer: 11000, category: 'Oil', description: 'Org-scoped retention seed' })
+      expect(maintenance.status).toBe(201)
+      return token
+    }
+
+    const tokenA = await registerAndSeedValueEvent(`sub-org-a-${Date.now()}@example.com`)
+    const tokenB = await registerAndSeedValueEvent(`sub-org-b-${Date.now()}@example.com`)
+
+    // Org A emits paywall + trial (+ converted event)
+    const statusA = await request(app)
+      .get('/api/subscription/status')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${tokenA}`)
+    expect(statusA.status).toBe(200)
+    expect(statusA.body.data.paywallEligible).toBe(true)
+
+    const trialA = await request(app)
+      .post('/api/subscription/trial/start')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ billingCycle: 'monthly', variant: 'window30-org-a' })
+    expect(trialA.status).toBe(200)
+
+    // Org B emits only paywall-viewed (no trial)
+    const statusB = await request(app)
+      .get('/api/subscription/status')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${tokenB}`)
+    expect(statusB.status).toBe(200)
+    expect(statusB.body.data.paywallEligible).toBe(true)
+
+    const summaryB = await request(app)
+      .get('/api/subscription/retention-summary')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${tokenB}`)
+    expect(summaryB.status).toBe(200)
+    expect(summaryB.body.data.trialStartRatePercent).toBe(0)
+    expect(summaryB.body.data.trialToPaidPercent).toBe(0)
+    expect(summaryB.body.data.month2PayerRetentionPercent).toBe(0)
+    expect(summaryB.body.data.refundRatePercent).toBe(0)
   })
 })

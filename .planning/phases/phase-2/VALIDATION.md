@@ -141,3 +141,31 @@ Analytics-context instrumentation hardening objectives are implemented and valid
 3. `npm run test:vitest -w @autocare/server -- src/interfaces/http/openapi/__tests__/registry.contract.test.ts` -> PASS
 4. `npm run test:vitest -w @autocare/server -- src/modules/reports/__tests__/subscription-analytics-context.test.ts` -> PASS
 5. `npm run test:vitest -w @autocare/server` -> PASS (`23` files, `80` passed, `12` skipped)
+
+---
+
+## Window 28-31 Validation Addendum
+
+### Verdict
+**PASS**
+
+Windows 28-31 objectives are implemented and validated for regression safety, organization-scoped retention semantics, and report-route null-safety hardening.
+
+### Window coverage
+- Full server regression verification after analytics-context and contract hardening.
+- Organization-scoped retention summary filtering with stable in-memory-auth fallback behavior in integration harnesses.
+- Integration expectations aligned to scoped retention semantics.
+- Spend handler null-safety cleanup (`query` guard replacing non-null assertions).
+
+### Validation evidence
+- Runtime:
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+- Integration:
+  - `apps/server/src/modules/reports/__tests__/subscription-http.integration.test.ts`
+- Execution trace:
+  - `.planning/phases/phase-2/EXECUTION.md`
+
+### Executed checks
+1. `npm run typecheck -w @autocare/server` -> PASS
+2. `npm run test:vitest -w @autocare/server -- src/modules/reports/__tests__/subscription-http.integration.test.ts` -> PASS
+3. `npm run test:vitest -w @autocare/server` -> PASS (`23` files, `81` passed, `12` skipped)

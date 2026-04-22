@@ -612,3 +612,21 @@ Implemented in working tree; locally verified.
   - preserved existing response shape and spend KPI semantics
 - Validation:
   - report route lint warnings reduced to zero
+
+---
+
+## Window 30 execution (retention-summary organization scope isolation)
+
+### TDD flow
+1. Added integration coverage for organization-scoped retention summary behavior.
+2. Implemented org-user scoping in retention summary endpoint with deterministic fallback for in-memory auth test harnesses.
+3. Re-ran focused report/openapi suites and server typecheck.
+
+### Implemented
+- Retention summary scoping:
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+  - `GET /api/subscription/retention-summary` now filters events by organization user IDs.
+  - fallback behavior (for test harnesses without persisted user rows) scopes to current authenticated user ID.
+- Integration test updates:
+  - `apps/server/src/modules/reports/__tests__/subscription-http.integration.test.ts`
+  - added org-scope isolation coverage and aligned multi-user expectations to per-org/per-user scoped retention summaries.
