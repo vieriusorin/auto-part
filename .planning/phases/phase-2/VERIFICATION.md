@@ -115,3 +115,35 @@ scope: window-3 (retention summary hardening + subscription endpoint integration
 - `npm run db:verify:hybrid` -> **PASS**
 - `npm run typecheck -w @autocare/server` -> **PASS**
 - `npm run test:vitest -w @autocare/server` -> **PASS**
+
+---
+
+## Window 23-27 Verification Addendum
+
+### Verdict
+**PASS (for planned window scope).**
+
+### Verified outcomes
+1. Subscription analytics events now capture request-derived context instead of static placeholders.
+2. Analytics header sanitization/fallback behavior is deterministic and tested for malformed/missing/oversized values.
+3. OpenAPI now documents analytics-context headers for instrumented subscription routes.
+4. Subscription lifecycle event context is consistent across paywall/trial/conversion/month2/refund instrumentation paths.
+5. Full server suite remains green after these hardening windows.
+
+### Evidence
+- Runtime/context handling:
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+  - `apps/server/src/modules/reports/application/subscription-analytics-context.ts`
+- Test coverage:
+  - `apps/server/src/modules/reports/__tests__/subscription-http.integration.test.ts`
+  - `apps/server/src/modules/reports/__tests__/subscription-analytics-context.test.ts`
+  - `apps/server/src/interfaces/http/openapi/__tests__/registry.contract.test.ts`
+- OpenAPI registration:
+  - `apps/server/src/interfaces/http/openapi/register-route.ts`
+
+### Commands and outcomes
+- `npm run typecheck -w @autocare/server` -> **PASS**
+- `npm run test:vitest -w @autocare/server -- src/modules/reports/__tests__/subscription-http.integration.test.ts` -> **PASS**
+- `npm run test:vitest -w @autocare/server -- src/interfaces/http/openapi/__tests__/registry.contract.test.ts` -> **PASS**
+- `npm run test:vitest -w @autocare/server -- src/modules/reports/__tests__/subscription-analytics-context.test.ts` -> **PASS**
+- `npm run test:vitest -w @autocare/server` -> **PASS** (`23` files, `80` passed, `12` skipped)

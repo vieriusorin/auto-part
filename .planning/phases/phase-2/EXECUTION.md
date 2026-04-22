@@ -477,3 +477,138 @@ Implemented in working tree; locally verified.
   - injected stub via `createAuthModule(..., { db })`
 - Assertion hardening:
   - premium report and spend paths now explicitly assert `200` in access-control tests
+
+---
+
+## Window 23 execution (subscription analytics request-context fidelity)
+
+### TDD flow
+1. Added integration coverage requiring subscription analytics events to carry request-supplied metadata.
+2. Implemented request-context extraction in subscription analytics tracking helper.
+3. Re-ran focused subscription integration tests and server typecheck.
+
+### Implemented
+- Request-context analytics instrumentation in report routes:
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+  - `trackSubscriptionEvent(...)` now derives metadata from request headers with fallbacks:
+    - `X-Platform` (normalized), fallback from `X-Client`
+    - `X-Country` (uppercased, 2-letter clamp)
+    - `X-Channel`
+    - `X-App-Version`
+    - `X-Session-Id`
+    - `X-Device-Id`
+- Integration coverage:
+  - `apps/server/src/modules/reports/__tests__/subscription-http.integration.test.ts`
+  - verifies `subscription_paywall_viewed` event persists request analytics context values.
+
+### Notes
+- This closes the placeholder gap from earlier windows where instrumentation defaulted to static values (`country: 'XX'`, `channel: 'organic'`, `appVersion: 'server'`).
+
+---
+
+## Window 24 execution (analytics header sanitization and fallback hardening)
+
+### TDD flow
+1. Added integration test covering malformed and oversized analytics headers on subscription status flow.
+2. Implemented sanitization and fallback logic in subscription event tracking.
+3. Re-ran focused subscription integration suite and server typecheck.
+
+### Implemented
+- Header sanitization/fallback updates:
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+  - behavior:
+    - invalid `X-Platform` now falls back to `X-Client`-derived platform instead of dropping event
+    - `X-Country` must match strict 2-letter uppercase code, else defaults to `XX`
+    - `X-Channel` truncated to 64 chars with fallback to `organic`
+    - `X-App-Version` truncated to 32 chars with fallback to `server`
+    - `X-Session-Id` and `X-Device-Id` truncated to 128 chars with safe fallbacks
+- Integration coverage:
+  - `apps/server/src/modules/reports/__tests__/subscription-http.integration.test.ts`
+  - asserts fallback + truncation behavior on persisted `subscription_paywall_viewed` events.
+
+---
+
+## Window 25 execution (OpenAPI contract coverage for analytics-context headers)
+
+### TDD flow
+1. Added OpenAPI contract test requiring analytics-context headers on instrumented subscription operations.
+2. Extended route registration to support request-header schema metadata.
+3. Wired subscription report routes to declare analytics header schema.
+4. Re-ran focused OpenAPI contract tests and server typecheck.
+
+### Implemented
+- OpenAPI route registration enhancement:
+  - `apps/server/src/interfaces/http/openapi/register-route.ts`
+  - `RouteDefinition` now supports optional `headers` schema
+  - header schema is emitted in OpenAPI `request.headers`
+- Subscription route header contract declarations:
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+  - added `SubscriptionAnalyticsHeadersSchema` and attached it to instrumented operations:
+    - `GET /api/subscription/status`
+    - `POST /api/subscription/trial/start`
+    - `POST /api/subscription/cancel`
+    - `POST /api/subscription/lifecycle/month2-active`
+- OpenAPI contract test coverage:
+  - `apps/server/src/interfaces/http/openapi/__tests__/registry.contract.test.ts`
+  - verifies all expected analytics headers are documented on instrumented subscription operations.
+
+---
+
+## Window 26 execution (analytics-context parser extraction + unit coverage)
+
+### TDD flow
+1. Extracted analytics header parsing from report routes into dedicated application helper.
+2. Added focused unit tests for valid, malformed, and missing header scenarios.
+3. Re-ran focused unit/integration suites and server typecheck.
+
+### Implemented
+- New helper:
+  - `apps/server/src/modules/reports/application/subscription-analytics-context.ts`
+  - exported `buildSubscriptionAnalyticsContext(req)` for centralized parsing/sanitization.
+- Unit tests:
+  - `apps/server/src/modules/reports/__tests__/subscription-analytics-context.test.ts`
+  - covers:
+    - valid headers
+    - invalid/oversized values fallback + truncation
+    - missing-header defaults
+- Route refactor:
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+  - `trackSubscriptionEvent(...)` now consumes the extracted helper, no behavior drift.
+
+---
+
+## Window 27 execution (lifecycle event context parity integration coverage)
+
+### TDD flow
+1. Added DB-backed integration coverage requiring analytics-context parity across all instrumented subscription lifecycle events.
+2. Executed subscription lifecycle flow with explicit analytics headers.
+3. Verified persisted raw events maintain consistent metadata across paywall/trial/conversion/month2/refund events.
+
+### Implemented
+- Integration test hardening:
+  - `apps/server/src/modules/reports/__tests__/subscription-http.integration.test.ts`
+  - new test validates context propagation for:
+    - `subscription_paywall_viewed`
+    - `subscription_trial_started`
+    - `subscription_converted_to_paid`
+    - `subscription_month2_active`
+    - `subscription_refunded`
+  - asserts shared metadata parity:
+    - `platform`, `country`, `channel`, `appVersion`, `sessionId`, `deviceId`
+
+---
+
+## Window 29 execution (report spend handler null-safety lint hardening)
+
+### TDD flow
+1. Ran lint diagnostics on changed report/OpenAPI files.
+2. Removed non-null assertions in spend KPI route by introducing explicit query guard.
+3. Re-ran lint, typecheck, and focused suites to confirm no behavior regression.
+
+### Implemented
+- Spend route null-safety cleanup:
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+  - replaced `query!` usage with early validation branch and safe `query` references
+  - preserved existing response shape and spend KPI semantics
+- Validation:
+  - report route lint warnings reduced to zero

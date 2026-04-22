@@ -38,6 +38,7 @@ export type RouteDefinition<
   params?: TParams
   query?: TQuery
   body?: TBody
+  headers?: ZodType
   responses: Record<number, RouteResponseSpec>
   middlewares?: RequestHandler[]
   handler: TypedRouteHandler<TParams, TQuery, TBody>
@@ -168,6 +169,9 @@ export const registerRoute = <
         },
       },
     }
+  }
+  if (definition.headers) {
+    requestConfig.headers = definition.headers
   }
 
   const responses = buildOpenApiResponses({

@@ -227,6 +227,45 @@ describe('OpenAPI registry contract', () => {
     }
   })
 
+  it('documents analytics-context headers on instrumented subscription endpoints', () => {
+    const document = buildOpenApiDocument({
+      title: 'Autocare API',
+      version: '0.0.0-test',
+      description: 'test',
+      serverUrl: '/api',
+    })
+
+    const expectedHeaderNames = [
+      'x-platform',
+      'x-country',
+      'x-channel',
+      'x-app-version',
+      'x-session-id',
+      'x-device-id',
+    ]
+
+    const instrumentedOperations = [
+      document.paths?.['/api/subscription/status']?.get,
+      document.paths?.['/api/subscription/trial/start']?.post,
+      document.paths?.['/api/subscription/cancel']?.post,
+      document.paths?.['/api/subscription/lifecycle/month2-active']?.post,
+    ]
+
+    for (const operation of instrumentedOperations) {
+      expect(operation).toBeTruthy()
+      const parameters = operation?.parameters ?? []
+      const headerParameterNames = parameters
+        .filter((parameter) => 'in' in parameter && parameter.in === 'header' && 'name' in parameter)
+        .map((parameter) => ('name' in parameter ? parameter.name : ''))
+      for (const headerName of expectedHeaderNames) {
+        expect(
+          headerParameterNames.includes(headerName),
+          `missing header ${headerName}`,
+        ).toBe(true)
+      }
+    }
+  })
+
   it('documents 403 plan-gated responses for reports premium endpoints', () => {
     const document = buildOpenApiDocument({
       title: 'Autocare API',

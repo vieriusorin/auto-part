@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { Router } from 'express'
+import { z } from 'zod'
 import {
   ApiErrorResponseSchema,
   CancelSubscriptionBodySchema,
@@ -18,11 +19,13 @@ import {
 import { subscriptionCancellation, users } from '@autocare/db'
 import { commonPresenter } from '../../../../presenters/common.presenter.js'
 import { registerRoute } from '../../../../interfaces/http/openapi/index.js'
+import type { Request } from 'express'
 import type { AuthModule } from '../../../auth/auth-module.js'
 import { createAuthHttpGuards } from '../../../auth/interfaces/http/auth-http-guards.js'
 import { createRequirePermissionMiddleware } from '../../../auth/interfaces/http/require-permission.middleware.js'
 import { createRequirePlanMiddleware } from '../../../auth/interfaces/http/require-plan.middleware.js'
 import { computePreviousWindow, buildSpendKpis } from '../../application/spend-kpis.js'
+import { buildSubscriptionAnalyticsContext } from '../../application/subscription-analytics-context.js'
 import { buildSubscriptionRetentionSummary } from '../../application/subscription-retention-summary.js'
 import { createVehicleRepository } from '../../../vehicles/infrastructure/vehicle-repository.js'
 import { appendRawEvent, listDailyRollups, listRawEvents } from '../../../analytics/repository.js'
@@ -30,6 +33,14 @@ import { desc, eq, sql } from 'drizzle-orm'
 
 const REPORTS_TAG = 'Reports'
 const SUBSCRIPTION_TAG = 'Subscription'
+const SubscriptionAnalyticsHeadersSchema = z.object({
+  'x-platform': z.string().optional(),
+  'x-country': z.string().optional(),
+  'x-channel': z.string().optional(),
+  'x-app-version': z.string().optional(),
+  'x-session-id': z.string().optional(),
+  'x-device-id': z.string().optional(),
+})
 
 export const createReportRouter = (authModule?: AuthModule): Router => {
   const router = Router()
@@ -59,24 +70,27 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
   const trackSubscriptionEvent = async ({
     eventName,
     userId,
-    platform,
+    req,
   }: {
     eventName: string
     userId: string | null
-    platform: 'ios' | 'android'
+    req: Request
   }): Promise<void> => {
+    const { platform, country, channel, appVersion, sessionId, deviceId } =
+      buildSubscriptionAnalyticsContext(req)
+
     await appendRawEvent({
       eventId: randomUUID(),
       eventName,
       occurredAtClient: new Date().toISOString(),
       receivedAtServer: new Date().toISOString(),
       userId,
-      sessionId: randomUUID(),
-      deviceId: 'server-derived',
+      sessionId,
+      deviceId,
       platform,
-      country: 'XX',
-      channel: 'organic',
-      appVersion: 'server',
+      country,
+      channel,
+      appVersion,
       schemaVersion: 1,
     })
   }
@@ -88,6 +102,7 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
     summary: 'Get subscription status and paywall eligibility',
     operationId: 'getSubscriptionStatus',
     middlewares: [requireReportsRead],
+    headers: SubscriptionAnalyticsHeadersSchema,
     responses: {
       200: {
         description: 'Subscription status',
@@ -119,12 +134,11 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
       const hasValueEvent = await hasRecentMaintenanceValueEvent(orgId)
       const paywallEligible = hasValueEvent && user.effectivePlan === 'free'
       if (paywallEligible) {
-        const platform = req.header('X-Client') === 'mobile' ? 'ios' : 'android'
         try {
           await trackSubscriptionEvent({
             eventName: 'subscription_paywall_viewed',
             userId: user.id,
-            platform,
+            req,
           })
         } catch {
           // Avoid failing status reads on analytics instrumentation issues.
@@ -150,6 +164,7 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
     summary: 'Mark payer as active in month 2 cohort',
     operationId: 'markSubscriptionMonth2Active',
     middlewares: [requireReportsRead],
+    headers: SubscriptionAnalyticsHeadersSchema,
     responses: {
       200: {
         description: 'Month 2 payer active recorded',
@@ -166,12 +181,11 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
-      const platform = req.header('X-Client') === 'mobile' ? 'ios' : 'android'
       try {
         await trackSubscriptionEvent({
           eventName: 'subscription_month2_active',
           userId: user.id,
-          platform,
+          req,
         })
       } catch {
         // Lifecycle tracking should not fail main flow.
@@ -230,6 +244,7 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
     operationId: 'startSubscriptionTrial',
     body: StartTrialBodySchema,
     middlewares: [requireReportsRead],
+    headers: SubscriptionAnalyticsHeadersSchema,
     responses: {
       200: {
         description: 'Trial started',
@@ -274,17 +289,16 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         return
       }
       await authModule.users.updateOrganizationPlan(user.organizationId, 'premium')
-      const platform = req.header('X-Client') === 'mobile' ? 'ios' : 'android'
       try {
         await trackSubscriptionEvent({
           eventName: 'subscription_trial_started',
           userId: user.id,
-          platform,
+          req,
         })
         await trackSubscriptionEvent({
           eventName: 'subscription_converted_to_paid',
           userId: user.id,
-          platform,
+          req,
         })
       } catch {
         // Trial flow should not fail when analytics tracking fails.
@@ -310,6 +324,7 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
     operationId: 'cancelSubscription',
     body: CancelSubscriptionBodySchema,
     middlewares: [requireReportsRead],
+    headers: SubscriptionAnalyticsHeadersSchema,
     responses: {
       200: {
         description: 'Subscription canceled',
@@ -370,12 +385,11 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         reason: body?.reason ?? 'unknown',
         feedback: body?.feedback ?? null,
       })
-      const platform = req.header('X-Client') === 'mobile' ? 'ios' : 'android'
       try {
         await trackSubscriptionEvent({
           eventName: 'subscription_refunded',
           userId: user.id,
-          platform,
+          req,
         })
       } catch {
         // Cancellation should not fail when analytics tracking fails.
@@ -500,13 +514,17 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
       },
     },
     handler: async ({ req, res, query }) => {
+      if (!query) {
+        commonPresenter.error(res, 400, 'validation_error', 'Invalid request query')
+        return
+      }
       const orgId = req.user?.organizationId
       if (!orgId || !vehicleRepo) {
         commonPresenter.ok(res, {
           range: {
-            from: query!.from,
-            to: query!.to,
-            granularity: query!.granularity,
+            from: query.from,
+            to: query.to,
+            granularity: query.granularity,
           },
           totals: {
             totalSpend: 0,
@@ -525,31 +543,31 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         return
       }
 
-      const from = new Date(query!.from)
-      const to = new Date(query!.to)
-      const previousWindow = computePreviousWindow(query!)
+      const from = new Date(query.from)
+      const to = new Date(query.to)
+      const previousWindow = computePreviousWindow(query)
 
       const [currentRows, previousRows] = await Promise.all([
         vehicleRepo.listMaintenanceForOrganizationInRange({
           organizationId: orgId,
           from,
           to,
-          vehicleIds: query!.vehicleIds,
-          categories: query!.categories,
+          vehicleIds: query.vehicleIds,
+          categories: query.categories,
         }),
         vehicleRepo.listMaintenanceForOrganizationInRange({
           organizationId: orgId,
           from: previousWindow.from,
           to: previousWindow.to,
-          vehicleIds: query!.vehicleIds,
-          categories: query!.categories,
+          vehicleIds: query.vehicleIds,
+          categories: query.categories,
         }),
       ])
 
       commonPresenter.ok(
         res,
         buildSpendKpis({
-          query: query!,
+          query,
           currentRows,
           previousRows,
         }),

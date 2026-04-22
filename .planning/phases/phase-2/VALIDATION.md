@@ -108,3 +108,36 @@ Window 4 infrastructure hardening objectives are implemented and validated in a 
 3. `npm run db:verify:hybrid` -> PASS
 4. `npm run typecheck -w @autocare/server` -> PASS
 5. `npm run test:vitest -w @autocare/server` -> PASS
+
+---
+
+## Window 23-27 Validation Addendum
+
+### Verdict
+**PASS**
+
+Analytics-context instrumentation hardening objectives are implemented and validated across runtime behavior, contract docs, and lifecycle integration coverage.
+
+### Window coverage
+- Request-context subscription analytics enrichment (replace static placeholder telemetry).
+- Header sanitization and fallback safety for analytics metadata.
+- OpenAPI header contract emission for instrumented subscription operations.
+- End-to-end lifecycle context parity across trial/cancel/month2/paywall event paths.
+
+### Validation evidence
+- Runtime/context extraction:
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+  - `apps/server/src/modules/reports/application/subscription-analytics-context.ts`
+- Integration/unit/contract tests:
+  - `apps/server/src/modules/reports/__tests__/subscription-http.integration.test.ts`
+  - `apps/server/src/modules/reports/__tests__/subscription-analytics-context.test.ts`
+  - `apps/server/src/interfaces/http/openapi/__tests__/registry.contract.test.ts`
+- OpenAPI route metadata plumbing:
+  - `apps/server/src/interfaces/http/openapi/register-route.ts`
+
+### Executed checks
+1. `npm run typecheck -w @autocare/server` -> PASS
+2. `npm run test:vitest -w @autocare/server -- src/modules/reports/__tests__/subscription-http.integration.test.ts` -> PASS
+3. `npm run test:vitest -w @autocare/server -- src/interfaces/http/openapi/__tests__/registry.contract.test.ts` -> PASS
+4. `npm run test:vitest -w @autocare/server -- src/modules/reports/__tests__/subscription-analytics-context.test.ts` -> PASS
+5. `npm run test:vitest -w @autocare/server` -> PASS (`23` files, `80` passed, `12` skipped)

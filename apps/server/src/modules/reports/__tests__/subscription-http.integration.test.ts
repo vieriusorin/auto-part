@@ -4,7 +4,7 @@ import express from 'express'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import request from 'supertest'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { clearRawEvents } from '../../analytics/repository.js'
+import { clearRawEvents, listRawEvents } from '../../analytics/repository.js'
 import { errorHandler } from '../../../interfaces/http/middlewares/error-handler.middleware.js'
 import { createAuthModule } from '../../auth/auth-module.js'
 import {
@@ -335,5 +335,214 @@ describe.skipIf(!process.env.DATABASE_URL)('subscription HTTP integration', () =
     expect(summary.body.data.trialToPaidPercent).toBe(100)
     expect(summary.body.data.month2PayerRetentionPercent).toBe(50)
     expect(summary.body.data.refundRatePercent).toBe(50)
+  })
+
+  it('tracks subscription events with request analytics context', async () => {
+    const db = getAuthDb(process.env.DATABASE_URL as string)
+    const app = await buildApp(db)
+
+    const reg = await request(app)
+      .post('/auth/register')
+      .set('X-Client', 'mobile')
+      .send({ email: `sub-context-${Date.now()}@example.com`, password: 'password123' })
+    expect(reg.status).toBe(201)
+    const token = reg.body.data.tokens.accessToken as string
+
+    const createdVehicle = await request(app)
+      .post('/api/vehicles')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        make: 'Honda',
+        model: 'Civic',
+        year: 2021,
+        vin: `HC${Date.now().toString(36)}`,
+      })
+    expect(createdVehicle.status).toBe(201)
+    const vehicleId = createdVehicle.body.data.id as string
+
+    const createMaintenance = await request(app)
+      .post(`/api/vehicles/${vehicleId}/maintenance`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ odometer: 17500, category: 'Oil', description: 'Value event for analytics context' })
+    expect(createMaintenance.status).toBe(201)
+
+    const status = await request(app)
+      .get('/api/subscription/status')
+      .set('X-Client', 'mobile')
+      .set('X-Platform', 'ios')
+      .set('X-Country', 'ro')
+      .set('X-Channel', 'referral')
+      .set('X-App-Version', '1.9.0')
+      .set('X-Session-Id', 'session-retention-context')
+      .set('X-Device-Id', 'device-retention-context')
+      .set('Authorization', `Bearer ${token}`)
+    expect(status.status).toBe(200)
+    expect(status.body.data.paywallEligible).toBe(true)
+
+    const events = await listRawEvents()
+    const paywallEvent = events.find((event) => event.eventName === 'subscription_paywall_viewed')
+    expect(paywallEvent).toBeTruthy()
+    expect(paywallEvent?.platform).toBe('ios')
+    expect(paywallEvent?.country).toBe('RO')
+    expect(paywallEvent?.channel).toBe('referral')
+    expect(paywallEvent?.appVersion).toBe('1.9.0')
+    expect(paywallEvent?.sessionId).toBe('session-retention-context')
+    expect(paywallEvent?.deviceId).toBe('device-retention-context')
+  })
+
+  it('sanitizes analytics headers and falls back safely', async () => {
+    const db = getAuthDb(process.env.DATABASE_URL as string)
+    const app = await buildApp(db)
+
+    const reg = await request(app)
+      .post('/auth/register')
+      .set('X-Client', 'mobile')
+      .send({ email: `sub-sanitize-${Date.now()}@example.com`, password: 'password123' })
+    expect(reg.status).toBe(201)
+    const token = reg.body.data.tokens.accessToken as string
+
+    const createdVehicle = await request(app)
+      .post('/api/vehicles')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        make: 'Skoda',
+        model: 'Octavia',
+        year: 2020,
+        vin: `SK${Date.now().toString(36)}`,
+      })
+    expect(createdVehicle.status).toBe(201)
+    const vehicleId = createdVehicle.body.data.id as string
+
+    const createMaintenance = await request(app)
+      .post(`/api/vehicles/${vehicleId}/maintenance`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ odometer: 21000, category: 'Oil', description: 'Value event for header sanitize test' })
+    expect(createMaintenance.status).toBe(201)
+
+    const longChannel = 'x'.repeat(100)
+    const longAppVersion = 'v'.repeat(80)
+    const longSessionId = 's'.repeat(180)
+    const longDeviceId = 'd'.repeat(180)
+
+    const status = await request(app)
+      .get('/api/subscription/status')
+      .set('X-Client', 'mobile')
+      .set('X-Platform', 'invalid-platform')
+      .set('X-Country', 'romania')
+      .set('X-Channel', longChannel)
+      .set('X-App-Version', longAppVersion)
+      .set('X-Session-Id', longSessionId)
+      .set('X-Device-Id', longDeviceId)
+      .set('Authorization', `Bearer ${token}`)
+    expect(status.status).toBe(200)
+    expect(status.body.data.paywallEligible).toBe(true)
+
+    const events = await listRawEvents()
+    const paywallEvent = events.find((event) => event.eventName === 'subscription_paywall_viewed')
+    expect(paywallEvent).toBeTruthy()
+    expect(paywallEvent?.platform).toBe('ios')
+    expect(paywallEvent?.country).toBe('XX')
+    expect(paywallEvent?.channel.length).toBe(64)
+    expect(paywallEvent?.appVersion.length).toBe(32)
+    expect(paywallEvent?.sessionId.length).toBe(128)
+    expect(paywallEvent?.deviceId.length).toBe(128)
+  })
+
+  it('propagates analytics context across trial, month2, and cancel events', async () => {
+    const db = getAuthDb(process.env.DATABASE_URL as string)
+    const app = await buildApp(db)
+
+    const reg = await request(app)
+      .post('/auth/register')
+      .set('X-Client', 'mobile')
+      .send({ email: `sub-lifecycle-context-${Date.now()}@example.com`, password: 'password123' })
+    expect(reg.status).toBe(201)
+    const token = reg.body.data.tokens.accessToken as string
+
+    const createdVehicle = await request(app)
+      .post('/api/vehicles')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        make: 'Seat',
+        model: 'Leon',
+        year: 2022,
+        vin: `ST${Date.now().toString(36)}`,
+      })
+    expect(createdVehicle.status).toBe(201)
+    const vehicleId = createdVehicle.body.data.id as string
+
+    const createMaintenance = await request(app)
+      .post(`/api/vehicles/${vehicleId}/maintenance`)
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ odometer: 18000, category: 'Oil', description: 'Value event for lifecycle context test' })
+    expect(createMaintenance.status).toBe(201)
+
+    const analyticsHeaders = {
+      'X-Platform': 'android',
+      'X-Country': 'DE',
+      'X-Channel': 'paid-social',
+      'X-App-Version': '2.3.1',
+      'X-Session-Id': 'session-lifecycle-context',
+      'X-Device-Id': 'device-lifecycle-context',
+    } as const
+
+    const status = await request(app)
+      .get('/api/subscription/status')
+      .set('X-Client', 'mobile')
+      .set(analyticsHeaders)
+      .set('Authorization', `Bearer ${token}`)
+    expect(status.status).toBe(200)
+    expect(status.body.data.paywallEligible).toBe(true)
+
+    const startTrial = await request(app)
+      .post('/api/subscription/trial/start')
+      .set('X-Client', 'mobile')
+      .set(analyticsHeaders)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ billingCycle: 'monthly', variant: 'window27-lifecycle-context' })
+    expect(startTrial.status).toBe(200)
+
+    const month2Active = await request(app)
+      .post('/api/subscription/lifecycle/month2-active')
+      .set('X-Client', 'mobile')
+      .set(analyticsHeaders)
+      .set('Authorization', `Bearer ${token}`)
+      .send({})
+    expect(month2Active.status).toBe(200)
+
+    const cancel = await request(app)
+      .post('/api/subscription/cancel')
+      .set('X-Client', 'mobile')
+      .set(analyticsHeaders)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reason: 'too_expensive' })
+    expect(cancel.status).toBe(200)
+
+    const events = await listRawEvents()
+    const lifecycleEvents = events.filter((event) =>
+      [
+        'subscription_paywall_viewed',
+        'subscription_trial_started',
+        'subscription_converted_to_paid',
+        'subscription_month2_active',
+        'subscription_refunded',
+      ].includes(event.eventName),
+    )
+    expect(lifecycleEvents.length).toBeGreaterThanOrEqual(5)
+
+    for (const event of lifecycleEvents) {
+      expect(event.platform).toBe('android')
+      expect(event.country).toBe('DE')
+      expect(event.channel).toBe('paid-social')
+      expect(event.appVersion).toBe('2.3.1')
+      expect(event.sessionId).toBe('session-lifecycle-context')
+      expect(event.deviceId).toBe('device-lifecycle-context')
+    }
   })
 })
