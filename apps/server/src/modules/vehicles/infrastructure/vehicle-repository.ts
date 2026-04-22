@@ -107,17 +107,26 @@ export type VehicleRepository = {
   }) => Promise<VehicleReminderRow | null>
 }
 
+type OwnedVehicleRef = {
+  row: VehicleRow
+  internalId: number
+}
+
 const findOwnedVehicle = async (
   db: NodePgDatabase,
   vehicleId: string,
   organizationId: string,
-): Promise<VehicleRow | null> => {
+): Promise<OwnedVehicleRef | null> => {
   const rows = await db
     .select()
     .from(vehicle)
     .where(and(eq(vehicle.id, vehicleId), eq(vehicle.organizationId, organizationId)))
     .limit(1)
-  return rows[0] ?? null
+  const row = rows[0] ?? null
+  if (!row || row.idInt === null) {
+    return null
+  }
+  return { row, internalId: row.idInt }
 }
 
 const findMaintenanceOwnedQuery = async (
@@ -128,7 +137,7 @@ const findMaintenanceOwnedQuery = async (
   const rows = await db
     .select({ log: maintenanceLog })
     .from(maintenanceLog)
-    .innerJoin(vehicleTable, eq(maintenanceLog.vehicleId, vehicleTable.id))
+    .innerJoin(vehicleTable, eq(maintenanceLog.vehicleIdInt, vehicleTable.idInt))
     .where(
       and(
         eq(maintenanceLog.id, maintenanceId),
@@ -143,13 +152,17 @@ const findUserInOrganization = async (
   db: NodePgDatabase,
   userId: string,
   organizationId: string,
-): Promise<boolean> => {
+): Promise<number | null> => {
   const rows = await db
-    .select({ id: users.id })
+    .select({ id: users.id, idInt: users.idInt })
     .from(users)
     .where(and(eq(users.id, userId), eq(users.organizationId, organizationId)))
     .limit(1)
-  return Boolean(rows[0]?.id)
+  const row = rows[0] ?? null
+  if (!row?.id || row.idInt === null) {
+    return null
+  }
+  return row.idInt
 }
 
 export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository => ({
@@ -161,7 +174,10 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
       .orderBy(desc(vehicle.createdAt))
   },
 
-  findOwned: (vehicleId, organizationId) => findOwnedVehicle(db, vehicleId, organizationId),
+  findOwned: async (vehicleId, organizationId) => {
+    const owned = await findOwnedVehicle(db, vehicleId, organizationId)
+    return owned?.row ?? null
+  },
 
   create: async (organizationId, input) => {
     const [row] = await db
@@ -205,7 +221,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
     if (patch.isLocked !== undefined) updates.isLocked = patch.isLocked
 
     if (Object.keys(updates).length === 0) {
-      return existing
+      return existing.row
     }
 
     const [row] = await db
@@ -234,6 +250,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
       .insert(maintenanceLog)
       .values({
         vehicleId,
+        vehicleIdInt: v.internalId,
         date: now,
         odometer,
         category,
@@ -255,7 +272,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
     return db
       .select()
       .from(maintenanceLog)
-      .where(eq(maintenanceLog.vehicleId, vehicleId))
+      .where(eq(maintenanceLog.vehicleIdInt, v.internalId))
       .orderBy(desc(maintenanceLog.date))
   },
   listMaintenanceForOrganizationInRange: async ({ organizationId, from, to, vehicleIds, categories }) => {
@@ -273,7 +290,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
     const rows = await db
       .select({ log: maintenanceLog })
       .from(maintenanceLog)
-      .innerJoin(vehicleTable, eq(maintenanceLog.vehicleId, vehicleTable.id))
+      .innerJoin(vehicleTable, eq(maintenanceLog.vehicleIdInt, vehicleTable.idInt))
       .where(and(...predicates))
       .orderBy(desc(maintenanceLog.date))
     return rows.map((row) => row.log)
@@ -322,7 +339,12 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
     return db
       .select()
       .from(vehicleDocument)
-      .where(and(eq(vehicleDocument.vehicleId, vehicleId), eq(vehicleDocument.organizationId, organizationId)))
+      .where(
+        and(
+          eq(vehicleDocument.vehicleIdInt, v.internalId),
+          eq(vehicleDocument.organizationId, organizationId),
+        ),
+      )
       .orderBy(desc(vehicleDocument.createdAt))
   },
 
@@ -341,28 +363,31 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
     if (!v) {
       throw new Error('vehicle_not_found')
     }
-    const uploaderInOrg = await findUserInOrganization(db, uploadedBy, organizationId)
-    if (!uploaderInOrg) {
+    const uploaderIdInt = await findUserInOrganization(db, uploadedBy, organizationId)
+    if (!uploaderIdInt) {
       throw new Error('uploader_not_in_organization')
     }
-    if (maintenanceLogId) {
-      const ownedLog = await findMaintenanceOwnedQuery(db, maintenanceLogId, organizationId)
-      if (!ownedLog || ownedLog.vehicleId !== vehicleId) {
-        throw new Error('maintenance_not_found')
-      }
+    const ownedLog = maintenanceLogId
+      ? await findMaintenanceOwnedQuery(db, maintenanceLogId, organizationId)
+      : null
+    if (maintenanceLogId && (!ownedLog || ownedLog.vehicleIdInt !== v.internalId)) {
+      throw new Error('maintenance_not_found')
     }
     const [row] = await db
       .insert(vehicleDocument)
       .values({
         vehicleId,
+        vehicleIdInt: v.internalId,
         organizationId,
         maintenanceLogId: maintenanceLogId ?? null,
+        maintenanceLogIdInt: ownedLog?.idInt ?? null,
         type,
         title,
         storageKey,
         mimeType,
         sizeBytes,
         uploadedBy,
+        uploadedByInt: uploaderIdInt,
       })
       .returning()
     if (!row) {
@@ -377,7 +402,9 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
     return db
       .select()
       .from(vehicleMember)
-      .where(and(eq(vehicleMember.vehicleId, vehicleId), eq(vehicleMember.organizationId, organizationId)))
+      .where(
+        and(eq(vehicleMember.vehicleIdInt, v.internalId), eq(vehicleMember.organizationId, organizationId)),
+      )
       .orderBy(desc(vehicleMember.createdAt))
   },
 
@@ -386,12 +413,12 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
     if (!v) {
       throw new Error('vehicle_not_found')
     }
-    const userInOrg = await findUserInOrganization(db, userId, organizationId)
-    if (!userInOrg) {
+    const userIdInt = await findUserInOrganization(db, userId, organizationId)
+    if (!userIdInt) {
       throw new Error('user_not_in_organization')
     }
-    const assignerInOrg = await findUserInOrganization(db, assignedBy, organizationId)
-    if (!assignerInOrg) {
+    const assignerIdInt = await findUserInOrganization(db, assignedBy, organizationId)
+    if (!assignerIdInt) {
       throw new Error('assigner_not_in_organization')
     }
 
@@ -401,6 +428,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
       .where(
         and(
           eq(vehicleMember.vehicleId, vehicleId),
+          eq(vehicleMember.vehicleIdInt, v.internalId),
           eq(vehicleMember.organizationId, organizationId),
           eq(vehicleMember.userId, userId),
         ),
@@ -413,6 +441,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
         .set({
           role,
           assignedBy,
+          assignedByInt: assignerIdInt,
         })
         .where(eq(vehicleMember.id, existing.id))
         .returning()
@@ -426,10 +455,13 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
       .insert(vehicleMember)
       .values({
         vehicleId,
+        vehicleIdInt: v.internalId,
         organizationId,
         userId,
+        userIdInt,
         role,
         assignedBy,
+        assignedByInt: assignerIdInt,
       })
       .returning()
     if (!created) {
@@ -444,7 +476,12 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
     return db
       .select()
       .from(vehicleReminder)
-      .where(and(eq(vehicleReminder.vehicleId, vehicleId), eq(vehicleReminder.organizationId, organizationId)))
+      .where(
+        and(
+          eq(vehicleReminder.vehicleIdInt, v.internalId),
+          eq(vehicleReminder.organizationId, organizationId),
+        ),
+      )
       .orderBy(vehicleReminder.dueAt, desc(vehicleReminder.createdAt))
   },
 
@@ -466,6 +503,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
       .insert(vehicleReminder)
       .values({
         vehicleId,
+        vehicleIdInt: v.internalId,
         organizationId,
         title,
         notes: notes ?? null,
@@ -492,7 +530,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
       .where(
         and(
           eq(vehicleReminder.id, reminderId),
-          eq(vehicleReminder.vehicleId, vehicleId),
+          eq(vehicleReminder.vehicleIdInt, owned.internalId),
           eq(vehicleReminder.organizationId, organizationId),
         ),
       )

@@ -1,4 +1,4 @@
-import { refreshTokens } from '@autocare/db'
+import { refreshTokens, users } from '@autocare/db'
 import type { ClientKind } from '@autocare/shared'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
@@ -45,13 +45,31 @@ const mapRow = (row: typeof refreshTokens.$inferSelect): RefreshTokenRecord => (
   clientKind: (row.clientKind as ClientKind | 'unknown') ?? 'unknown',
 })
 
+const resolveUserIntId = async (
+  db: NodePgDatabase,
+  userId: string,
+): Promise<number> => {
+  const rows = await db
+    .select({ idInt: users.idInt })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  const idInt = rows[0]?.idInt
+  if (idInt === null || idInt === undefined) {
+    throw new Error('user_not_found_for_refresh_token')
+  }
+  return idInt
+}
+
 export const createRefreshTokenRepository = (db: NodePgDatabase): RefreshTokenRepository => ({
   insert: async (input) => {
+    const userIdInt = await resolveUserIntId(db, input.userId)
     const [row] = await db
       .insert(refreshTokens)
       .values({
         id: input.id,
         userId: input.userId,
+        userIdInt,
         familyId: input.familyId,
         tokenHash: input.tokenHash,
         issuedAt: input.issuedAt,

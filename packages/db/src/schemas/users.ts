@@ -1,4 +1,4 @@
-import { index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import { bigint, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
 export const userRoleEnum = pgEnum('user_role', ['user', 'admin'])
 export const planTierEnum = pgEnum('plan_tier', ['free', 'premium'])
@@ -14,6 +14,7 @@ export const users = pgTable(
   'users',
   {
     id: uuid('id').defaultRandom().primaryKey(),
+    idInt: bigint('id_int', { mode: 'number' }),
     email: text('email').notNull(),
     passwordHash: text('password_hash').notNull(),
     role: userRoleEnum('role').notNull().default('user'),
@@ -29,6 +30,7 @@ export const users = pgTable(
   },
   (table) => ({
     emailKey: uniqueIndex('users_email_key').on(table.email),
+    idIntKey: uniqueIndex('users_id_int_key').on(table.idInt),
     organizationIdx: index('users_organization_idx').on(table.organizationId),
   }),
 )
@@ -56,7 +58,9 @@ export const refreshTokens = pgTable(
   'refresh_tokens',
   {
     id: uuid('id').defaultRandom().primaryKey(),
+    idInt: bigint('id_int', { mode: 'number' }),
     userId: uuid('user_id').notNull(),
+    userIdInt: bigint('user_id_int', { mode: 'number' }),
 
     familyId: uuid('family_id').notNull(),
 
@@ -79,7 +83,9 @@ export const refreshTokens = pgTable(
   },
   (table) => ({
     tokenHashKey: uniqueIndex('refresh_tokens_token_hash_key').on(table.tokenHash),
+    idIntKey: uniqueIndex('refresh_tokens_id_int_key').on(table.idInt),
     userIdx: index('refresh_tokens_user_idx').on(table.userId),
+    userIdIntIdx: index('refresh_tokens_user_id_int_idx').on(table.userIdInt),
     familyIdx: index('refresh_tokens_family_idx').on(table.familyId),
     expiresAtIdx: index('refresh_tokens_expires_at_idx').on(table.expiresAt),
   }),

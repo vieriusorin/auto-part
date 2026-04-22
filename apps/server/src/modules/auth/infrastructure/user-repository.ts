@@ -62,6 +62,7 @@ const withPlan = (db: NodePgDatabase) =>
   db
     .select({
       id: users.id,
+      idInt: users.idInt,
       email: users.email,
       passwordHash: users.passwordHash,
       role: users.role,

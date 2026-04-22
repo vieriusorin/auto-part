@@ -1,8 +1,9 @@
-import { boolean, integer, jsonb, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigint, boolean, integer, jsonb, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import { trustCriticalFieldColumns } from './schemas/trust-critical-fields.js'
 
 export const vehicle = pgTable('vehicle', {
   id: uuid('id').defaultRandom().primaryKey(),
+  idInt: bigint('id_int', { mode: 'number' }),
   organizationId: text('organization_id').notNull(),
   make: text('make').notNull(),
   model: text('model').notNull(),
@@ -17,7 +18,9 @@ export const vehicle = pgTable('vehicle', {
 
 export const maintenanceLog = pgTable('maintenance_log', {
   id: uuid('id').defaultRandom().primaryKey(),
+  idInt: bigint('id_int', { mode: 'number' }),
   vehicleId: uuid('vehicle_id').notNull(),
+  vehicleIdInt: bigint('vehicle_id_int', { mode: 'number' }),
   date: timestamp('date').notNull(),
   odometer: integer('odometer').notNull(),
   category: text('category').notNull(),
@@ -32,7 +35,9 @@ export const maintenanceLog = pgTable('maintenance_log', {
 
 export const vehicleReminder = pgTable('vehicle_reminder', {
   id: uuid('id').defaultRandom().primaryKey(),
+  idInt: bigint('id_int', { mode: 'number' }),
   vehicleId: uuid('vehicle_id').notNull(),
+  vehicleIdInt: bigint('vehicle_id_int', { mode: 'number' }),
   organizationId: text('organization_id').notNull(),
   title: text('title').notNull(),
   notes: text('notes'),
@@ -81,30 +86,39 @@ export const organizationInviteRoleEnum = pgEnum('organization_invite_role', [
 
 export const vehicleDocument = pgTable('vehicle_document', {
   id: uuid('id').defaultRandom().primaryKey(),
+  idInt: bigint('id_int', { mode: 'number' }),
   vehicleId: uuid('vehicle_id').notNull(),
+  vehicleIdInt: bigint('vehicle_id_int', { mode: 'number' }),
   organizationId: text('organization_id').notNull(),
   maintenanceLogId: uuid('maintenance_log_id'),
+  maintenanceLogIdInt: bigint('maintenance_log_id_int', { mode: 'number' }),
   type: vehicleDocumentTypeEnum('type').notNull(),
   title: text('title').notNull(),
   storageKey: text('storage_key').notNull(),
   mimeType: text('mime_type').notNull(),
   sizeBytes: integer('size_bytes').notNull(),
   uploadedBy: uuid('uploaded_by').notNull(),
+  uploadedByInt: bigint('uploaded_by_int', { mode: 'number' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
 export const vehicleMember = pgTable('vehicle_member', {
   id: uuid('id').defaultRandom().primaryKey(),
+  idInt: bigint('id_int', { mode: 'number' }),
   vehicleId: uuid('vehicle_id').notNull(),
+  vehicleIdInt: bigint('vehicle_id_int', { mode: 'number' }),
   organizationId: text('organization_id').notNull(),
   userId: uuid('user_id').notNull(),
+  userIdInt: bigint('user_id_int', { mode: 'number' }),
   role: vehicleMemberRoleEnum('role').notNull(),
   assignedBy: uuid('assigned_by').notNull(),
+  assignedByInt: bigint('assigned_by_int', { mode: 'number' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
 export const organizationInvite = pgTable('organization_invites', {
   id: uuid('id').defaultRandom().primaryKey(),
+  idInt: bigint('id_int', { mode: 'number' }),
   organizationId: text('organization_id').notNull(),
   email: text('email').notNull(),
   role: organizationInviteRoleEnum('role').notNull(),
@@ -113,15 +127,19 @@ export const organizationInvite = pgTable('organization_invites', {
   acceptedAt: timestamp('accepted_at', { withTimezone: true }),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
   invitedBy: uuid('invited_by').notNull(),
+  invitedByInt: bigint('invited_by_int', { mode: 'number' }),
   acceptedBy: uuid('accepted_by'),
+  acceptedByInt: bigint('accepted_by_int', { mode: 'number' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
 export const subscriptionCancellation = pgTable('subscription_cancellations', {
   id: uuid('id').defaultRandom().primaryKey(),
+  idInt: bigint('id_int', { mode: 'number' }),
   organizationId: text('organization_id').notNull(),
   userId: uuid('user_id').notNull(),
+  userIdInt: bigint('user_id_int', { mode: 'number' }),
   reason: text('reason').notNull(),
   feedback: text('feedback'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

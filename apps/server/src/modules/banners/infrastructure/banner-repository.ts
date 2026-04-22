@@ -1,4 +1,4 @@
-import { banners, userBannerDismissals } from '@autocare/db'
+import { banners, userBannerDismissals, users } from '@autocare/db'
 import { and, desc, eq, gt, isNull, lte, or } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 
@@ -12,14 +12,23 @@ export type BannerRepository = {
 
 export const createBannerRepository = (db: NodePgDatabase): BannerRepository => ({
   listVisibleForUser: async (userId, now) => {
+    const userRows = await db
+      .select({ idInt: users.idInt })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+    const userIdInt = userRows[0]?.idInt
+    if (userIdInt === null || userIdInt === undefined) {
+      return []
+    }
     const rows = await db
       .select({ banner: banners })
       .from(banners)
       .leftJoin(
         userBannerDismissals,
         and(
-          eq(userBannerDismissals.bannerKey, banners.key),
-          eq(userBannerDismissals.userId, userId),
+          eq(userBannerDismissals.bannerIdInt, banners.idInt),
+          eq(userBannerDismissals.userIdInt, userIdInt),
         ),
       )
       .where(
@@ -36,11 +45,31 @@ export const createBannerRepository = (db: NodePgDatabase): BannerRepository => 
   },
 
   dismiss: async (userId, bannerKey, now) => {
+    const userRows = await db
+      .select({ idInt: users.idInt })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+    const userIdInt = userRows[0]?.idInt
+    if (userIdInt === null || userIdInt === undefined) {
+      return
+    }
+    const bannerRows = await db
+      .select({ idInt: banners.idInt })
+      .from(banners)
+      .where(eq(banners.key, bannerKey))
+      .limit(1)
+    const bannerIdInt = bannerRows[0]?.idInt
+    if (bannerIdInt === null || bannerIdInt === undefined) {
+      return
+    }
     await db
       .insert(userBannerDismissals)
       .values({
         userId,
+        userIdInt,
         bannerKey,
+        bannerIdInt,
         dismissedAt: now,
       })
       .onConflictDoUpdate({

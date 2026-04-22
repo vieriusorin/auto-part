@@ -13,7 +13,7 @@ import {
   SpendKpisQuerySchema,
   SpendKpisResponseDataSchema,
 } from '@autocare/shared'
-import { subscriptionCancellation } from '@autocare/db'
+import { subscriptionCancellation, users } from '@autocare/db'
 import { commonPresenter } from '../../../../presenters/common.presenter.js'
 import { registerRoute } from '../../../../interfaces/http/openapi/index.js'
 import type { AuthModule } from '../../../auth/auth-module.js'
@@ -179,9 +179,20 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
       }
       await authModule.users.updateOrganizationPlan(user.organizationId, 'free')
       await authModule.users.updatePlanOverride(user.id, null)
+      const userRows = await authModule.db
+        .select({ idInt: users.idInt })
+        .from(users)
+        .where(eq(users.id, user.id))
+        .limit(1)
+      const userIdInt = userRows[0]?.idInt
+      if (userIdInt === undefined || userIdInt === null) {
+        commonPresenter.error(res, 400, 'invalid_user', 'Unable to resolve internal user id')
+        return
+      }
       await authModule.db.insert(subscriptionCancellation).values({
         organizationId: user.organizationId,
         userId: user.id,
+        userIdInt,
         reason: body?.reason ?? 'unknown',
         feedback: body?.feedback ?? null,
       })

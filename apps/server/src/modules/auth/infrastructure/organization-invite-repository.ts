@@ -1,4 +1,4 @@
-import { organizationInvite } from '@autocare/db'
+import { organizationInvite, users } from '@autocare/db'
 import type { OrganizationInviteRole } from '@autocare/shared'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
@@ -43,10 +43,24 @@ const mapRow = (row: typeof organizationInvite.$inferSelect): OrganizationInvite
   updatedAt: row.updatedAt,
 })
 
+const resolveUserIntId = async (db: NodePgDatabase, userId: string): Promise<number> => {
+  const rows = await db
+    .select({ idInt: users.idInt })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  const idInt = rows[0]?.idInt
+  if (idInt === null || idInt === undefined) {
+    throw new Error('invite_user_not_found')
+  }
+  return idInt
+}
+
 export const createOrganizationInviteRepository = (
   db: NodePgDatabase,
 ): OrganizationInviteRepository => ({
   create: async (input) => {
+    const invitedByInt = await resolveUserIntId(db, input.invitedBy)
     const [row] = await db
       .insert(organizationInvite)
       .values({
@@ -56,6 +70,7 @@ export const createOrganizationInviteRepository = (
         tokenHash: input.tokenHash,
         expiresAt: input.expiresAt,
         invitedBy: input.invitedBy,
+        invitedByInt,
       })
       .returning()
     if (!row) {
@@ -100,9 +115,10 @@ export const createOrganizationInviteRepository = (
     return row ? mapRow(row) : null
   },
   markAccepted: async (id, acceptedBy, at) => {
+    const acceptedByInt = await resolveUserIntId(db, acceptedBy)
     const [row] = await db
       .update(organizationInvite)
-      .set({ acceptedAt: at, acceptedBy, updatedAt: at })
+      .set({ acceptedAt: at, acceptedBy, acceptedByInt, updatedAt: at })
       .where(and(eq(organizationInvite.id, id), isNull(organizationInvite.acceptedAt)))
       .returning()
     return row ? mapRow(row) : null
