@@ -144,3 +144,17 @@ export const subscriptionCancellation = pgTable('subscription_cancellations', {
   feedback: text('feedback'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+export const documentStatusEnum = pgEnum('document_status', ['draft', 'published', 'archived'])
+
+export const document = pgTable('document', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  title: text('title').notNull(),
+  content: text('content').notNull(),
+  status: documentStatusEnum('status').notNull().default('draft'),
+  isLocked: boolean('is_locked').notNull().default(false),
+  creatorId: uuid('creator_id').notNull(),
+  lastEditedById: uuid('last_edited_by_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})

@@ -2,6 +2,7 @@ import { organizationInvite, users } from '@autocare/db'
 import type { OrganizationInviteRole } from '@autocare/shared'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
+import { buildSqlFilterFromPolicies } from '../application/policy-sql.js'
 import type { OrganizationInviteRecord } from '../domain/types.js'
 
 export type CreateOrganizationInviteInput = {
@@ -79,10 +80,14 @@ export const createOrganizationInviteRepository = (
     return mapRow(row)
   },
   listForOrganization: async (organizationId) => {
+    const policyWhere =
+      buildSqlFilterFromPolicies([{ organizationId }], {
+        organizationId: organizationInvite.organizationId,
+      }) ?? eq(organizationInvite.organizationId, organizationId)
     const rows = await db
       .select()
       .from(organizationInvite)
-      .where(eq(organizationInvite.organizationId, organizationId))
+      .where(policyWhere)
       .orderBy(desc(organizationInvite.createdAt))
     return rows.map(mapRow)
   },

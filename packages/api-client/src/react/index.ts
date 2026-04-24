@@ -1,4 +1,4 @@
-export type { AuthSession, LogoutResult, Me } from './auth-hooks.js'
+export type { AuthSession, LogoutResult, Me } from './auth-hooks'
 export {
   useChangePassword,
   useLogin,
@@ -7,12 +7,16 @@ export {
   useMe,
   useRefresh,
   useRegister,
-} from './auth-hooks.js'
-export { ApiClientContext, useApiClient } from './context.js'
+} from './auth-hooks'
+export { ApiClientContext, useApiClient } from './context'
 export {
+  useAffiliateOffers,
   useAnalyticsDashboard,
   useAuditLogs,
   useBanners,
+  useReportAffiliateComplaint,
+  useTrackAffiliateClick,
+  useTrackAffiliateExposure,
   useCreateMaintenanceLog,
   useCreateVehicleDocument,
   useCreateVehicleReminder,
@@ -43,7 +47,7 @@ export {
   useVehicles,
   useWashSuggestion,
   useWeeklySummary,
-} from './hooks.js'
-export { ApiClientProvider } from './provider.js'
-export type { UseAuthResult } from './use-auth.js'
-export { useAuth, usePermissions } from './use-auth.js'
+} from './hooks'
+export { ApiClientProvider } from './provider'
+export type { UseAuthResult } from './use-auth'
+export { useAuth, usePermissions } from './use-auth'

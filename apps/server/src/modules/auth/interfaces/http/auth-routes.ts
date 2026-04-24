@@ -23,7 +23,6 @@ import { Router } from 'express'
 import { authRateLimiter } from '../../../../interfaces/http/middlewares/security.middleware.js'
 import { registerRoute } from '../../../../interfaces/http/openapi/index.js'
 import { commonPresenter } from '../../../../presenters/common.presenter.js'
-import { permissionsForRole } from '../../application/permissions.js'
 import type { AuthModule } from '../../auth-module.js'
 import type { IssuedAccessToken, IssuedRefreshToken, UserRecord } from '../../domain/types.js'
 import { socialAuthDisabled } from '../../domain/errors.js'
@@ -64,7 +63,10 @@ const mapInvite = (
   createdAt: invite.createdAt.toISOString(),
 })
 
-const toUserProfile = (user: UserRecord): UserProfile => ({
+const toUserProfile = (
+  user: UserRecord,
+  permissionsForRole: AuthModule['authorization']['permissionsForRole'],
+): UserProfile => ({
   id: user.id,
   email: user.email,
   role: user.role,
@@ -83,8 +85,9 @@ const buildSessionResponse = (
   refresh: IssuedRefreshToken,
   csrfToken: string | undefined,
   shouldReturnTokensInBody: boolean,
+  permissionsForRole: AuthModule['authorization']['permissionsForRole'],
 ) => ({
-  user: toUserProfile(user),
+  user: toUserProfile(user, permissionsForRole),
   tokens: {
     accessToken: shouldReturnTokensInBody ? access.token : '',
     accessTokenExpiresAt: access.expiresAt.toISOString(),
@@ -103,6 +106,7 @@ export const createAuthRouter = (authModule: AuthModule): Router => {
     jwtSigner: authModule.jwtSigner,
     cookieConfig: authModule.cookieConfig,
     users: authModule.users,
+    permissionsForRole: authModule.authorization.permissionsForRole,
   })
   const requireCsrf = createCsrfMiddleware(authModule.csrfConfig, authModule.cookieConfig)
 
@@ -128,7 +132,14 @@ export const createAuthRouter = (authModule: AuthModule): Router => {
 
     const shouldReturnTokensInBody = !useCookies
 
-    const data = buildSessionResponse(user, access, refresh, csrfToken, shouldReturnTokensInBody)
+    const data = buildSessionResponse(
+      user,
+      access,
+      refresh,
+      csrfToken,
+      shouldReturnTokensInBody,
+      authModule.authorization.permissionsForRole,
+    )
     if (status === 201) {
       commonPresenter.created(res, data)
     } else {
@@ -147,8 +158,12 @@ export const createAuthRouter = (authModule: AuthModule): Router => {
       201: { description: 'Registered', dataSchema: AuthSessionResponseDataSchema },
     },
     handler: async ({ req, res, body }) => {
+      if (!body) {
+        commonPresenter.error(res, 400, 'validation_error', 'Invalid request body')
+        return
+      }
       const clientKind = detectClientKind(req)
-      const { user, access, refresh } = await authModule.useCases.register(body!, {
+      const { user, access, refresh } = await authModule.useCases.register(body, {
         clientKind,
         userAgent: req.headers['user-agent'],
         ipAddress: req.ip,
@@ -172,12 +187,20 @@ export const createAuthRouter = (authModule: AuthModule): Router => {
       },
     },
     handler: async ({ req, body, res }) => {
-      const user = await authModule.users.findById(req.user!.id)
+      if (!req.user) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      if (!body) {
+        commonPresenter.error(res, 400, 'validation_error', 'Invalid request body')
+        return
+      }
+      const user = await authModule.users.findById(req.user.id)
       if (!user) {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
-      const invite = await authModule.useCases.acceptInvite({ token: body!.token }, user)
+      const invite = await authModule.useCases.acceptInvite({ token: body.token }, user)
       commonPresenter.ok(res, mapInvite(invite))
     },
   })
@@ -196,7 +219,11 @@ export const createAuthRouter = (authModule: AuthModule): Router => {
       },
     },
     handler: async ({ params, res }) => {
-      const invite = await authModule.useCases.previewOrganizationInvite(params!.token)
+      if (!params) {
+        commonPresenter.error(res, 400, 'validation_error', 'Invalid route params')
+        return
+      }
+      const invite = await authModule.useCases.previewOrganizationInvite(params.token)
       commonPresenter.ok(res, {
         organizationId: invite.organizationId,
         emailMasked: maskEmail(invite.email),
@@ -220,9 +247,13 @@ export const createAuthRouter = (authModule: AuthModule): Router => {
       },
     },
     handler: async ({ req, res, body }) => {
+      if (!body) {
+        commonPresenter.error(res, 400, 'validation_error', 'Invalid request body')
+        return
+      }
       const clientKind = detectClientKind(req)
       const { user, access, refresh } = await authModule.useCases.acceptInviteAndRegister(
-        { token: body!.token, password: body!.password },
+        { token: body.token, password: body.password },
         {
           clientKind,
           userAgent: req.headers['user-agent'],
@@ -265,12 +296,16 @@ export const createAuthRouter = (authModule: AuthModule): Router => {
       200: { description: 'Authenticated', dataSchema: AuthSessionResponseDataSchema },
     },
     handler: async ({ req, res, body }) => {
+      if (!body) {
+        commonPresenter.error(res, 400, 'validation_error', 'Invalid request body')
+        return
+      }
       const clientKind = detectClientKind(req)
       const { user, access, refresh } = await authModule.useCases.socialLogin(
         {
           provider: 'google',
-          code: body!.code,
-          redirectUri: body!.redirectUri,
+          code: body.code,
+          redirectUri: body.redirectUri,
         },
         {
           clientKind,
@@ -293,8 +328,12 @@ export const createAuthRouter = (authModule: AuthModule): Router => {
       200: { description: 'Authenticated', dataSchema: AuthSessionResponseDataSchema },
     },
     handler: async ({ req, res, body }) => {
+      if (!body) {
+        commonPresenter.error(res, 400, 'validation_error', 'Invalid request body')
+        return
+      }
       const clientKind = detectClientKind(req)
-      const { user, access, refresh } = await authModule.useCases.login(body!, {
+      const { user, access, refresh } = await authModule.useCases.login(body, {
         clientKind,
         userAgent: req.headers['user-agent'],
         ipAddress: req.ip,
@@ -365,7 +404,11 @@ export const createAuthRouter = (authModule: AuthModule): Router => {
       200: { description: 'All sessions revoked', dataSchema: LogoutResponseDataSchema },
     },
     handler: async ({ req, res }) => {
-      await authModule.useCases.logoutAll(req.user!.id)
+      if (!req.user) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      await authModule.useCases.logoutAll(req.user.id)
       clearSessionCookies(res, authModule.cookieConfig)
       clearCsrfCookie(res, authModule.cookieConfig, authModule.csrfConfig)
       commonPresenter.ok(res, { loggedOut: true as const })
@@ -383,12 +426,16 @@ export const createAuthRouter = (authModule: AuthModule): Router => {
       200: { description: 'Current user', dataSchema: MeResponseDataSchema },
     },
     handler: async ({ req, res }) => {
-      const user = await authModule.users.findById(req.user!.id)
+      if (!req.user) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      const user = await authModule.users.findById(req.user.id)
       if (!user) {
         commonPresenter.error(res, 404, 'user_not_found', 'User not found')
         return
       }
-      commonPresenter.ok(res, toUserProfile(user))
+      commonPresenter.ok(res, toUserProfile(user, authModule.authorization.permissionsForRole))
     },
   })
 
@@ -404,11 +451,15 @@ export const createAuthRouter = (authModule: AuthModule): Router => {
       200: { description: 'Password changed', dataSchema: LogoutResponseDataSchema },
     },
     handler: async ({ req, res, body }) => {
-      await authModule.useCases.changePassword(
-        req.user!.id,
-        body!.currentPassword,
-        body!.newPassword,
-      )
+      if (!req.user) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      if (!body) {
+        commonPresenter.error(res, 400, 'validation_error', 'Invalid request body')
+        return
+      }
+      await authModule.useCases.changePassword(req.user.id, body.currentPassword, body.newPassword)
       clearSessionCookies(res, authModule.cookieConfig)
       clearCsrfCookie(res, authModule.cookieConfig, authModule.csrfConfig)
       commonPresenter.ok(res, { loggedOut: true as const })
@@ -429,6 +480,7 @@ export const createAuthApiRouter = (
       jwtSigner: authModule.jwtSigner,
       cookieConfig: authModule.cookieConfig,
       users: authModule.users,
+      permissionsForRole: authModule.authorization.permissionsForRole,
     })
 
   registerRoute(router, '/api', {
@@ -447,17 +499,25 @@ export const createAuthApiRouter = (
       },
     },
     handler: async ({ req, res, params, body }) => {
-      const actor = await authModule.users.findById(req.user!.id)
+      if (!req.user) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      if (!params || !body) {
+        commonPresenter.error(res, 400, 'validation_error', 'Invalid request payload')
+        return
+      }
+      const actor = await authModule.users.findById(req.user.id)
       if (!actor) {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
       const { invite, rawToken } = await authModule.useCases.createOrganizationInvite(
         {
-          organizationId: params!.orgId,
-          email: body!.email,
-          role: body!.role,
-          expiresInDays: body!.expiresInDays,
+          organizationId: params.orgId,
+          email: body.email,
+          role: body.role,
+          expiresInDays: body.expiresInDays,
         },
         actor,
       )
@@ -488,14 +548,22 @@ export const createAuthApiRouter = (
       },
     },
     handler: async ({ req, res, params }) => {
-      const actor = await authModule.users.findById(req.user!.id)
+      if (!req.user) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      if (!params) {
+        commonPresenter.error(res, 400, 'validation_error', 'Invalid route params')
+        return
+      }
+      const actor = await authModule.users.findById(req.user.id)
       if (!actor) {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
       const { invite, rawToken } = await authModule.useCases.resendOrganizationInvite(
-        params!.inviteId,
-        params!.orgId,
+        params.inviteId,
+        params.orgId,
         actor,
       )
       await authModule.inviteEmailSender.sendOrganizationInvite({
@@ -525,12 +593,20 @@ export const createAuthApiRouter = (
       },
     },
     handler: async ({ req, res, params }) => {
-      const actor = await authModule.users.findById(req.user!.id)
+      if (!req.user) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      if (!params) {
+        commonPresenter.error(res, 400, 'validation_error', 'Invalid route params')
+        return
+      }
+      const actor = await authModule.users.findById(req.user.id)
       if (!actor) {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
-      const invites = await authModule.useCases.listOrganizationInvites(params!.orgId, actor)
+      const invites = await authModule.useCases.listOrganizationInvites(params.orgId, actor)
       commonPresenter.ok(res, { items: invites.map(mapInvite) })
     },
   })
@@ -550,14 +626,22 @@ export const createAuthApiRouter = (
       },
     },
     handler: async ({ req, res, params }) => {
-      const actor = await authModule.users.findById(req.user!.id)
+      if (!req.user) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      if (!params) {
+        commonPresenter.error(res, 400, 'validation_error', 'Invalid route params')
+        return
+      }
+      const actor = await authModule.users.findById(req.user.id)
       if (!actor) {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
       const invite = await authModule.useCases.revokeOrganizationInvite(
-        params!.inviteId,
-        params!.orgId,
+        params.inviteId,
+        params.orgId,
         actor,
       )
       commonPresenter.ok(res, mapInvite(invite))

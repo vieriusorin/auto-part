@@ -1,12 +1,7 @@
-import { Text, View } from 'react-native'
+import { Redirect } from 'expo-router'
 
 const HomeScreen = () => {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>AutoCare Mobile</Text>
-      <Text>Timeline, reminders, and ownership insights</Text>
-    </View>
-  )
+  return <Redirect href='/(tabs)/garage' />
 }
 
 export default HomeScreen

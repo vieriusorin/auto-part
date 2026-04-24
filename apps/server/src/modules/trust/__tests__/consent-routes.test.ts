@@ -13,6 +13,20 @@ import { listConsentsForUser, resetConsentStore } from '../consent-service.js'
 describe('consent routes', () => {
   const app = express()
   app.use(express.json())
+  app.use((req, _res, next) => {
+    req.user = {
+      id: 'u-route',
+      email: 'route-user@example.com',
+      role: 'user',
+      organizationId: 'org-route',
+      organizationPlan: 'premium',
+      planOverride: null,
+      effectivePlan: 'premium',
+      permissions: ['*'],
+      tokenId: 'token-route',
+    }
+    next()
+  })
   app.post('/api/v1/consent', createConsentController)
   app.post('/api/v1/consent/revoke', revokeConsentController)
   app.post('/api/v1/consent/export', exportConsentDataController)
@@ -58,5 +72,19 @@ describe('consent routes', () => {
     expect(auditRows.some((entry) => entry.action === 'consent.revoked')).toBe(true)
     expect(auditRows.some((entry) => entry.action === 'consent.export')).toBe(true)
     expect(auditRows.some((entry) => entry.action === 'consent.delete')).toBe(true)
+  })
+
+  it('rejects non-elevated consent actions for another user id', async () => {
+    const response = await request(app).post('/api/v1/consent').send({
+      userId: 'different-user',
+      consentType: 'analytics',
+      legalBasis: 'consent',
+      policyVersion: 'v1',
+      source: 'api',
+      requestId: 'req-forbidden',
+    })
+
+    expect(response.status).toBe(403)
+    expect(response.body.error.code).toBe('forbidden')
   })
 })

@@ -54,3 +54,12 @@ This repository is a React Native mobile app, not a web app.
   2. `src/components/common/*`
   3. React Native core primitives when no shared wrapper exists
 - Prefer `className` with NativeWind; use `style` only for dynamic/computed styles
+
+## Server ABAC memory
+
+- For changes under `apps/server` that touch auth/permissions/scoping, load and follow the skill:
+  - `.cursor/skills/abac-server-alignment/SKILL.md`
+- Keep ABAC behavior and docs aligned:
+  - `apps/server/AUTHORIZATION_ALIGNMENT.md`
+  - `apps/server/ABAC_MIGRATION_PROGRESS.md`
+  - `apps/server/ACCESS_MATRIX.md`

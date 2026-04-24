@@ -1,13 +1,16 @@
 # Server Access Matrix
 
 This file documents the current access-control behavior for server endpoints.
+Policy source-of-truth lives in:
+- `apps/server/src/modules/auth/application/authorization-service.ts`
+- `packages/shared/src/contracts/authorization.ts`
 
 ## Policy Defaults
 
 - `/api/*` requires authentication by default.
 - Authorization is enforced through:
-  - role permissions (`requirePermission`)
-  - plan entitlements (`requirePlan`)
+  - centralized action decisions (`requirePermission` via `AuthorizationService`)
+  - centralized plan decisions (`requirePlan` via `AuthorizationService`)
   - module/domain checks (for example org invite ownership rules)
 - Plan precedence: `user plan override` > `organization plan`.
 
@@ -15,7 +18,7 @@ This file documents the current access-control behavior for server endpoints.
 
 ### Core
 
-- `GET /api/users/:id/weekly-summary` -> `auth` + free
+- `GET /api/users/:id/weekly-summary` -> `auth` + free + ABAC scope (self or elevated)
 - `POST /api/sync` -> `auth` + free
 
 ### Analytics
@@ -25,10 +28,10 @@ This file documents the current access-control behavior for server endpoints.
 
 ### Trust / Consent
 
-- `POST /api/v1/consent` -> `auth` + free
-- `POST /api/v1/consent/revoke` -> `auth` + free
-- `POST /api/v1/consent/export` -> `auth` + free
-- `POST /api/v1/consent/delete` -> `auth` + free
+- `POST /api/v1/consent` -> `auth` + free + ABAC scope (self or elevated)
+- `POST /api/v1/consent/revoke` -> `auth` + free + ABAC scope (self or elevated)
+- `POST /api/v1/consent/export` -> `auth` + free + ABAC scope (self or elevated)
+- `POST /api/v1/consent/delete` -> `auth` + free + ABAC scope (self or elevated)
 
 ### AI
 
@@ -39,11 +42,25 @@ This file documents the current access-control behavior for server endpoints.
 ### Reports
 
 - `POST /api/reports/generate` -> `auth` + `reports.read` + `premium`
-- `GET /api/v1/kpis/spend` -> `auth` + `reports.read` + `premium`
+- `GET /api/v1/kpis/spend` -> `auth` + `reports.read` + `premium` + field-level response filtering for non-elevated scopes
+
+### Affiliate
+
+- `GET /api/affiliate/offers` -> `auth` + free
+- `POST /api/affiliate/click` -> `auth` + free
+- `POST /api/affiliate/exposure` -> `auth` + free
+- `POST /api/affiliate/complaint` -> `auth` + free
+- `GET /api/affiliate/metrics` -> `auth` + `admin.analytics.read`
+- `GET /api/affiliate/impact` -> `auth` + `admin.analytics.read`
+- `GET /api/affiliate/dashboard` -> `auth` + `admin.analytics.read`
+- `GET /api/affiliate/trends` -> `auth` + `admin.analytics.read`
+- `GET /api/affiliate/disclosure-audit` -> `auth` + `admin.analytics.read`
+- `GET /api/affiliate/kpi-gates` -> `auth` + `admin.analytics.read`
+- `GET /api/affiliate/phase-exit-readiness` -> `auth` + `admin.analytics.read`
 
 ### Audit
 
-- `GET /api/audit-logs` -> `auth` + `audit.read.all`
+- `GET /api/audit-logs` -> `auth` + `audit.read.all` + scoped visibility (non-elevated users limited to actor-owned entries)
 
 ### Banners
 
@@ -55,6 +72,12 @@ This file documents the current access-control behavior for server endpoints.
 - `GET /api/wash/suggestion` -> `auth` + free
 - `GET /api/lez/check` -> `auth` + free
 - `GET /api/parts/tires/recommendations` -> `auth` + free
+
+### Documents
+
+- `GET /api/documents` -> `auth` + ABAC field-level read filtering
+- `POST /api/documents` -> `auth` + ABAC field-level write filtering + environment rules
+- `PATCH /api/documents/:id` -> `auth` + ABAC field-level write filtering + weekend rule (editor/author deny)
 
 ### Vehicles
 

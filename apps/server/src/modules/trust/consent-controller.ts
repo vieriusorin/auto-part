@@ -1,10 +1,21 @@
 import type { Request, Response } from 'express'
+import { commonPresenter } from '../../presenters/common.presenter.js'
 import { trustPresenter } from '../../presenters/trust.presenter.js'
+import { canAccessTrustUserTarget, resolveTrustResourceScope } from './application/trust-access-scope.js'
 import { createConsent, revokeConsent } from './consent-service.js'
 import { createDeleteJob, createExportJob } from './export-delete-jobs.js'
 
 export const createConsentController = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!req.user) {
+      commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+      return
+    }
+    const scope = resolveTrustResourceScope(req.user)
+    if (!canAccessTrustUserTarget(scope, req.body.userId)) {
+      commonPresenter.error(res, 403, 'forbidden', 'Insufficient permission for target user')
+      return
+    }
     const consent = await createConsent(req.body)
     trustPresenter.presentConsentCreated(res, consent)
   } catch (error) {
@@ -19,6 +30,15 @@ export const createConsentController = async (req: Request, res: Response): Prom
 
 export const revokeConsentController = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!req.user) {
+      commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+      return
+    }
+    const scope = resolveTrustResourceScope(req.user)
+    if (!canAccessTrustUserTarget(scope, req.body.userId)) {
+      commonPresenter.error(res, 403, 'forbidden', 'Insufficient permission for target user')
+      return
+    }
     const consent = await revokeConsent(req.body)
     trustPresenter.presentConsentAccepted(res, consent)
   } catch (error) {
@@ -33,6 +53,15 @@ export const revokeConsentController = async (req: Request, res: Response): Prom
 
 export const exportConsentDataController = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!req.user) {
+      commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+      return
+    }
+    const scope = resolveTrustResourceScope(req.user)
+    if (!canAccessTrustUserTarget(scope, req.body.userId)) {
+      commonPresenter.error(res, 403, 'forbidden', 'Insufficient permission for target user')
+      return
+    }
     const job = await createExportJob(req.body)
     trustPresenter.presentConsentAccepted(res, job)
   } catch (error) {
@@ -47,6 +76,15 @@ export const exportConsentDataController = async (req: Request, res: Response): 
 
 export const deleteConsentDataController = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!req.user) {
+      commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+      return
+    }
+    const scope = resolveTrustResourceScope(req.user)
+    if (!canAccessTrustUserTarget(scope, req.body.userId)) {
+      commonPresenter.error(res, 403, 'forbidden', 'Insufficient permission for target user')
+      return
+    }
     const job = await createDeleteJob(req.body)
     trustPresenter.presentConsentAccepted(res, job)
   } catch (error) {

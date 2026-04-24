@@ -1,9 +1,9 @@
 import type { UseMutationOptions, UseQueryOptions } from '@tanstack/react-query'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ApiError } from '../client.js'
-import { queryKeys } from '../query-keys.js'
-import type { operations } from '../types.gen.js'
-import { useApiClient } from './context.js'
+import { ApiError } from '../client'
+import { queryKeys } from '../query-keys'
+import type { operations } from '../types.gen'
+import { useApiClient } from './context'
 
 type SuccessEnvelope<T> = {
   success: true

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import type { ApiClient } from '../client.js'
-import { ApiClientContext } from './context.js'
+import type { ApiClient } from '../client'
+import { ApiClientContext } from './context'
 
 type ApiClientProviderProps = {
   client: ApiClient

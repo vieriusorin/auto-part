@@ -1,5 +1,5 @@
-export { EnvValidationError, formatZodIssues } from './errors.js'
-export { type MobileEnv, parseMobileEnv, resolveMobileApiBaseUrl } from './mobile.js'
+export { EnvValidationError, formatZodIssues } from './errors'
+export { type MobileEnv, parseMobileEnv, resolveMobileApiBaseUrl } from './mobile'
 export {
   getServerEnv,
   isDevelopment,
@@ -8,5 +8,5 @@ export {
   parseServerEnv,
   resetServerEnvCache,
   type ServerEnv,
-} from './server.js'
-export { parseWebEnv, resolveWebApiBaseUrl, type WebEnv } from './web.js'
+} from './server'
+export { parseWebEnv, resolveWebApiBaseUrl, type WebEnv } from './web'

@@ -9,6 +9,38 @@ export type UserRole = z.infer<typeof UserRoleSchema>
 export const PlanTierSchema = z.enum(['free', 'premium'])
 export type PlanTier = z.infer<typeof PlanTierSchema>
 
+export const AuthorizationActionSchema = z.enum([
+  'document.read',
+  'document.create',
+  'document.update',
+  'vehicles.read',
+  'vehicles.create',
+  'vehicles.update',
+  'vehicles.delete',
+  'logs.read',
+  'logs.create',
+  'logs.update',
+  'logs.delete',
+  'reports.read',
+  'audit.read.self',
+  'audit.read.all',
+  'admin.users.manage',
+  'admin.analytics.read',
+])
+export type AuthorizationAction = z.infer<typeof AuthorizationActionSchema>
+
+export const AuthorizationResourceTypeSchema = z.enum([
+  'document',
+  'system',
+  'vehicle',
+  'maintenance_log',
+  'report',
+  'affiliate',
+  'organization',
+  'user',
+])
+export type AuthorizationResourceType = z.infer<typeof AuthorizationResourceTypeSchema>
+
 export const SocialProviderSchema = z.enum(['google'])
 export type SocialProvider = z.infer<typeof SocialProviderSchema>
 
@@ -51,7 +83,7 @@ export const RefreshRequestSchema = z
   .optional()
 export type RefreshRequest = z.infer<typeof RefreshRequestSchema>
 
-export const PermissionSchema = z.string().min(1)
+export const PermissionSchema = z.union([AuthorizationActionSchema, z.literal('*')])
 export type Permission = z.infer<typeof PermissionSchema>
 
 export const UserProfileSchema = z.object({

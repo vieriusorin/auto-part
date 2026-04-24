@@ -1,4 +1,4 @@
-import type { ClientKind, OrganizationInviteRole, PlanTier, UserRole } from '@autocare/shared'
+import type { ClientKind, OrganizationInviteRole, Permission, PlanTier, UserRole } from '@autocare/shared'
 
 export type AuthenticatedUser = {
   id: string
@@ -8,7 +8,7 @@ export type AuthenticatedUser = {
   organizationPlan: PlanTier
   planOverride: PlanTier | null
   effectivePlan: PlanTier
-  permissions: string[]
+  permissions: Permission[]
   tokenId: string
 }
 

@@ -1,9 +1,9 @@
 import type { UseMutationOptions, UseQueryOptions } from '@tanstack/react-query'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ApiError } from '../client.js'
-import { queryKeys } from '../query-keys.js'
-import type { operations } from '../types.gen.js'
-import { useApiClient } from './context.js'
+import { ApiError } from '../client'
+import { queryKeys } from '../query-keys'
+import type { operations } from '../types.gen'
+import { useApiClient } from './context'
 
 type SuccessEnvelope<T> = {
   success: true
@@ -73,6 +73,10 @@ type CanceledSubscription = SuccessData<operations['cancelSubscription']>
 type MarkedMonth2Active = SuccessData<operations['markSubscriptionMonth2Active']>
 type CancelReasonsSummary = SuccessData<operations['listSubscriptionCancelReasons']>
 type SubscriptionRetentionSummary = SuccessData<operations['getSubscriptionRetentionSummary']>
+type AffiliateOffers = SuccessData<operations['listAffiliateOffers']>
+type AffiliateClickTracked = SuccessData<operations['trackAffiliateClick']>
+type AffiliateExposureTracked = SuccessData<operations['trackAffiliateExposure']>
+type AffiliateComplaintReported = SuccessData<operations['reportAffiliateComplaint']>
 
 export const useVehicles = (
   options?: Omit<UseQueryOptions<VehicleList>, 'queryKey' | 'queryFn'>,
@@ -303,6 +307,30 @@ export const useSubscriptionRetentionSummary = (
       const { data, error } = await client.GET('/api/subscription/retention-summary', {})
       if (error) throw error
       return unwrap<SubscriptionRetentionSummary>(data)
+    },
+    ...options,
+  })
+}
+
+type AffiliateIntentSurface = 'maintenance_due' | 'service_report_ready' | 'cost_anomaly_detected'
+
+type AffiliateOffersFilters = {
+  intentSurface?: AffiliateIntentSurface
+}
+
+export const useAffiliateOffers = (
+  filters: AffiliateOffersFilters = {},
+  options?: Omit<UseQueryOptions<AffiliateOffers>, 'queryKey' | 'queryFn'>,
+) => {
+  const client = useApiClient()
+  return useQuery<AffiliateOffers>({
+    queryKey: queryKeys.affiliate.offers(filters.intentSurface),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/affiliate/offers', {
+        params: { query: filters },
+      })
+      if (error) throw error
+      return unwrap<AffiliateOffers>(data)
     },
     ...options,
   })
@@ -742,6 +770,68 @@ export const useMarkSubscriptionMonth2Active = (
     onSuccess: (...args) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.subscription.retentionSummary() })
       options?.onSuccess?.(...args)
+    },
+    ...options,
+  })
+}
+
+type TrackAffiliateClickInput = {
+  offerId: string
+  intentSurface: AffiliateIntentSurface
+  disclosed: boolean
+  consentGranted: boolean
+}
+
+export const useTrackAffiliateClick = (
+  options?: UseMutationOptions<AffiliateClickTracked, unknown, TrackAffiliateClickInput>,
+) => {
+  const client = useApiClient()
+  return useMutation<AffiliateClickTracked, unknown, TrackAffiliateClickInput>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/affiliate/click', { body })
+      if (error) throw error
+      return unwrap<AffiliateClickTracked>(data)
+    },
+    ...options,
+  })
+}
+
+type TrackAffiliateExposureInput = {
+  offerId: string
+  intentSurface: AffiliateIntentSurface
+  disclosed: boolean
+}
+
+export const useTrackAffiliateExposure = (
+  options?: UseMutationOptions<AffiliateExposureTracked, unknown, TrackAffiliateExposureInput>,
+) => {
+  const client = useApiClient()
+  return useMutation<AffiliateExposureTracked, unknown, TrackAffiliateExposureInput>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/affiliate/exposure', { body })
+      if (error) throw error
+      return unwrap<AffiliateExposureTracked>(data)
+    },
+    ...options,
+  })
+}
+
+type ReportAffiliateComplaintInput = {
+  reason: string
+  offerId?: string
+  intentSurface?: AffiliateIntentSurface
+  disclosureVisible: boolean
+}
+
+export const useReportAffiliateComplaint = (
+  options?: UseMutationOptions<AffiliateComplaintReported, unknown, ReportAffiliateComplaintInput>,
+) => {
+  const client = useApiClient()
+  return useMutation<AffiliateComplaintReported, unknown, ReportAffiliateComplaintInput>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/affiliate/complaint', { body })
+      if (error) throw error
+      return unwrap<AffiliateComplaintReported>(data)
     },
     ...options,
   })

@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { EnvValidationError, formatZodIssues } from './errors.js'
+import { EnvValidationError, formatZodIssues } from './errors'
 
-export { EnvValidationError } from './errors.js'
+export { EnvValidationError } from './errors'
 
 const nodeEnvSchema = z.enum(['development', 'test', 'staging', 'production']).default('development')
 

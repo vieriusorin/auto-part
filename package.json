@@ -30,11 +30,18 @@
     "db:verify:hybrid": "npm run db:verify:hybrid -w @autocare/server",
     "db:bootstrap": "npm run db:migrate && npm run db:reset && npm run db:seed",
     "phase0:verify:local": "npm run phase0:integrity-gate -w @autocare/server && npm run phase0:gate -w @autocare/server",
-    "db:from-scratch": "npm run db:down:volumes && npm run db:start && npm run db:bootstrap && npm run phase0:verify:local"
+    "db:from-scratch": "npm run db:down:volumes && npm run db:start && npm run db:bootstrap && npm run phase0:verify:local",
+    "verify:affiliate:disclosure-guards": "npm run test:vitest -w @autocare/server -- src/modules/affiliate/__tests__/affiliate-http.integration.test.ts src/interfaces/http/openapi/__tests__/registry.contract.test.ts && npm run test:vitest -w @autocare/api-client -- src/affiliate-contract.test.ts && npm run typecheck -w @autocare/server && npm run typecheck -w @autocare/api-client"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
     "turbo": "^2.9.6",
     "typescript": "~5.9.2"
+  },
+  "overrides": {
+    "react-native-css-interop": "0.2.2",
+    "nativewind": {
+      "react-native-css-interop": "0.2.2"
+    }
   }
 }

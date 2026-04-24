@@ -3,15 +3,15 @@
 ## Project Reference
 - **Core value**: Help EU drivers avoid surprise repair bills through proactive, trustworthy maintenance planning.
 - **Strategy**: Retention-first, trust-first progression with gated monetization.
-- **Current focus**: Phase 2 — window 3 hardening complete (subscription endpoint integration tests + verification docs), with hybrid-ID infra hardening currently in progress.
-- **Latest execution update**: `.planning/phases/phase-2/EXECUTION.md` records windows 1-3 implementation for SUB-01..SUB-04 baseline/depth; hybrid-ID execution notes are tracked under `.planning/database/`.
+- **Current focus**: Phase 3 — windows 1-15 affiliate baseline + trust KPIs + readiness criteria + high-intent mobile activation/coverage + disclosure-label runtime/schema/client guards + CI verification bundling are in progress, following Phase 2 KPI-confidence hardening windows.
+- **Latest execution update**: `.planning/phases/phase-3/EXECUTION.md` records Phase 3 windows 1-15 implementation; Phase 2 execution depth through window 49 is tracked in `.planning/phases/phase-2/EXECUTION.md`.
 
 ## Current Position
-- **Current phase**: 2 - Subscription Fit — **execution in progress**
-- **Current plan**: `.planning/phases/phase-2-subscription-fit.md`; executable slice `.planning/phases/phase-2/PLAN.md` started (see `.planning/phases/phase-2/EXECUTION.md`)
+- **Current phase**: 3 - Trust-Safe Affiliate Layer — **execution in progress**
+- **Current plan**: `.planning/phases/phase-3-trust-safe-affiliate.md`; executable slice started in `.planning/phases/phase-3/EXECUTION.md`
 - **Phase 0 plan** (complete): `.planning/phases/phase-0/PLAN.md`
-- **Overall status**: Phase 0 verified; Phase 1 engineering-complete (KPI/business closeout pending); Phase 2 windows 1-3 implemented and locally verified
-- **Progress**: `1/5 phases complete` (roadmap closeout), with active delivery on Phase 2 and cross-cutting hybrid-ID hardening
+- **Overall status**: Phase 0 verified; Phase 1 engineering-complete (KPI/business closeout pending); Phase 2 execution expanded through window 49 (retention KPI evidence pending); Phase 3 execution in progress (windows 1-15 complete).
+- **Progress**: `1/5 phases complete` (roadmap closeout), with active delivery on Phase 3 and ongoing Phase 2 KPI evidence closeout.
 
 ## Implementation progress (repo / working tree)
 
@@ -74,4 +74,5 @@ Aligned to Phase 1 sequencing in `.planning/phases/phase-1-mvp-pmf-probe.md`:
 - Detailed execution scopes: `.planning/phases/`
 - Phase 1 closeout runbook: `.planning/phases/phase-1/CLOSEOUT-CHECKLIST.md`
 - Phase 2 verification docs: `.planning/phases/phase-2/VERIFICATION.md`, `.planning/phases/phase-2/VALIDATION.md`
+- Phase 3 execution docs: `.planning/phases/phase-3/EXECUTION.md`, `.planning/phases/phase-3/VERIFICATION.md`, `.planning/phases/phase-3/VALIDATION.md`
 

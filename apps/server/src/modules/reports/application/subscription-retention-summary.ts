@@ -7,6 +7,18 @@ type SubscriptionRetentionSummary = {
   month2PayerRetentionPercent: number
   refundRatePercent: number
   freeTierD30RetentionDeltaPercent: number
+  confidence: {
+    trialStartRate: 'low' | 'medium' | 'high'
+    trialToPaidRate: 'low' | 'medium' | 'high'
+    payerLifecycleRates: 'low' | 'medium' | 'high'
+    freeTierD30Delta: 'low' | 'medium' | 'high'
+  }
+  sampleSize: {
+    paywallViews: number
+    trialStarts: number
+    paidConversions: number
+    lowSampleThreshold: number
+  }
   notes: string[]
 }
 
@@ -25,11 +37,40 @@ const toPercent = (numerator: number, denominator: number): number => {
   }
   return Number(((numerator / denominator) * 100).toFixed(1))
 }
+const LOW_SAMPLE_THRESHOLD = 10
+const MEDIUM_SAMPLE_THRESHOLD = 30
+const LOW_FREE_TIER_BASELINE_THRESHOLD = 100
+const MEDIUM_FREE_TIER_BASELINE_THRESHOLD = 500
+
+const confidenceFromDenominator = (denominator: number): 'low' | 'medium' | 'high' => {
+  if (denominator < LOW_SAMPLE_THRESHOLD) {
+    return 'low'
+  }
+  if (denominator < MEDIUM_SAMPLE_THRESHOLD) {
+    return 'medium'
+  }
+  return 'high'
+}
+
+const confidenceFromFreeTierBaseline = (
+  prePaywallActivations: number,
+  postPaywallActivations: number,
+): 'low' | 'medium' | 'high' => {
+  const baselineDenominator = Math.min(prePaywallActivations, postPaywallActivations)
+  if (baselineDenominator < LOW_FREE_TIER_BASELINE_THRESHOLD) {
+    return 'low'
+  }
+  if (baselineDenominator < MEDIUM_FREE_TIER_BASELINE_THRESHOLD) {
+    return 'medium'
+  }
+  return 'high'
+}
 
 export const buildSubscriptionRetentionSummary = (
   events: NormalizedAnalyticsEvent[],
   rollups: PersistedRollupRow[],
 ): SubscriptionRetentionSummary => {
+  const seenEventIds = new Set<string>()
   let paywallViews = 0
   let trialStarts = 0
   let paidConversions = 0
@@ -37,6 +78,11 @@ export const buildSubscriptionRetentionSummary = (
   let refunds = 0
 
   for (const event of events) {
+    if (seenEventIds.has(event.eventId)) {
+      continue
+    }
+    seenEventIds.add(event.eventId)
+
     if (PAYWALL_VIEWED_EVENTS.has(event.eventName)) {
       paywallViews += 1
       continue
@@ -72,6 +118,22 @@ export const buildSubscriptionRetentionSummary = (
       : 0
 
   const hasPrePostBaselines = prePaywallActivations > 0 && postPaywallActivations > 0
+  const sampleSizeNotes: string[] = []
+  if (paywallViews > 0 && paywallViews < LOW_SAMPLE_THRESHOLD) {
+    sampleSizeNotes.push(
+      'trialStartRatePercent is based on a low sample size (<10 paywall views); interpret trend directionally.',
+    )
+  }
+  if (trialStarts > 0 && trialStarts < LOW_SAMPLE_THRESHOLD) {
+    sampleSizeNotes.push(
+      'trialToPaidPercent is based on a low sample size (<10 trial starts); interpret trend directionally.',
+    )
+  }
+  if (paidConversions > 0 && paidConversions < LOW_SAMPLE_THRESHOLD) {
+    sampleSizeNotes.push(
+      'month2PayerRetentionPercent and refundRatePercent are based on a low sample size (<10 paid conversions).',
+    )
+  }
 
   return {
     trialStartRatePercent: toPercent(trialStarts, paywallViews),
@@ -79,11 +141,24 @@ export const buildSubscriptionRetentionSummary = (
     month2PayerRetentionPercent: toPercent(month2ActivePayers, paidConversions),
     refundRatePercent: toPercent(refunds, paidConversions),
     freeTierD30RetentionDeltaPercent,
+    confidence: {
+      trialStartRate: confidenceFromDenominator(paywallViews),
+      trialToPaidRate: confidenceFromDenominator(trialStarts),
+      payerLifecycleRates: confidenceFromDenominator(paidConversions),
+      freeTierD30Delta: confidenceFromFreeTierBaseline(prePaywallActivations, postPaywallActivations),
+    },
+    sampleSize: {
+      paywallViews,
+      trialStarts,
+      paidConversions,
+      lowSampleThreshold: LOW_SAMPLE_THRESHOLD,
+    },
     notes: [
       'Summary derived from billing analytics events (paywall, trial, conversion, refund).',
       hasPrePostBaselines
         ? 'freeTierD30RetentionDeltaPercent derived from free_pre_paywall and free_post_paywall rollup cohorts.'
         : 'freeTierD30RetentionDeltaPercent defaults to 0 until free_pre_paywall and free_post_paywall baseline cohorts are available.',
+      ...sampleSizeNotes,
     ],
   }
 }

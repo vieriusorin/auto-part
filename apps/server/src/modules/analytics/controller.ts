@@ -1,5 +1,9 @@
 import type { Request, Response } from 'express'
 import { analyticsPresenter } from '../../presenters/analytics.presenter.js'
+import {
+  resolveAnalyticsDashboardFilters,
+  resolveAnalyticsResourceScope,
+} from './application/analytics-access-scope.js'
 import { getDashboardRollups, ingestEventBatch } from './service.js'
 
 export const ingestAnalyticsEventsController = async (
@@ -26,7 +30,12 @@ export const getAnalyticsDashboardController = async (
         ? req.query.platform
         : undefined
     const channel = typeof req.query.channel === 'string' ? req.query.channel : undefined
-    const rows = await getDashboardRollups({ country, platform, channel })
+    const scope = resolveAnalyticsResourceScope(req.user)
+    const filters = resolveAnalyticsDashboardFilters({
+      scope,
+      requested: { country, platform, channel },
+    })
+    const rows = await getDashboardRollups(filters)
     analyticsPresenter.presentDashboard(res, rows)
   } catch (error) {
     analyticsPresenter.presentDashboardError(res, error)

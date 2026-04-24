@@ -15,6 +15,7 @@ import {
   SubscriptionStatusResponseDataSchema,
   SpendKpisQuerySchema,
   SpendKpisResponseDataSchema,
+  AuthorizationActions,
 } from '@autocare/shared'
 import { subscriptionCancellation, users } from '@autocare/db'
 import { commonPresenter } from '../../../../presenters/common.presenter.js'
@@ -24,11 +25,21 @@ import type { AuthModule } from '../../../auth/auth-module.js'
 import { createAuthHttpGuards } from '../../../auth/interfaces/http/auth-http-guards.js'
 import { createRequirePermissionMiddleware } from '../../../auth/interfaces/http/require-permission.middleware.js'
 import { createRequirePlanMiddleware } from '../../../auth/interfaces/http/require-plan.middleware.js'
+import { buildSqlFilterFromPolicies } from '../../../auth/application/policy-sql.js'
+import {
+  reportPolicyConditions,
+  resolveOrganizationIdForReports,
+  resolveReportResourceScope,
+} from '../../application/report-access-scope.js'
+import {
+  filterSpendKpisResponse,
+  filterSubscriptionRetentionResponse,
+} from '../../application/report-field-filter.js'
 import { computePreviousWindow, buildSpendKpis } from '../../application/spend-kpis.js'
 import { buildSubscriptionAnalyticsContext } from '../../application/subscription-analytics-context.js'
 import { buildSubscriptionRetentionSummary } from '../../application/subscription-retention-summary.js'
 import { createVehicleRepository } from '../../../vehicles/infrastructure/vehicle-repository.js'
-import { appendRawEvent, listDailyRollups, listRawEvents } from '../../../analytics/repository.js'
+import { appendRawEvent, listRawEvents } from '../../../analytics/repository.js'
 import { desc, eq, sql } from 'drizzle-orm'
 
 const REPORTS_TAG = 'Reports'
@@ -46,8 +57,8 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
   const router = Router()
   const authGuards = authModule ? createAuthHttpGuards(authModule) : null
   const requireReportsRead = authGuards
-    ? authGuards.requirePermission('reports.read')
-    : createRequirePermissionMiddleware('reports.read')
+    ? authGuards.requirePermission(AuthorizationActions.reportsRead)
+    : createRequirePermissionMiddleware(AuthorizationActions.reportsRead)
   const requirePremium = authGuards
     ? authGuards.requirePlan({ minimumPlan: 'premium' })
     : createRequirePlanMiddleware({ minimumPlan: 'premium' })
@@ -119,7 +130,7 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
-      const orgId = user.organizationId
+      const orgId = resolveOrganizationIdForReports(user)
       if (!orgId || !vehicleRepo) {
         commonPresenter.ok(res, {
           organizationPlan: user.organizationPlan,
@@ -177,7 +188,7 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
     },
     handler: async ({ req, res }) => {
       const user = req.user
-      if (!user?.organizationId) {
+      if (!user || !resolveOrganizationIdForReports(user)) {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
@@ -265,7 +276,12 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
     },
     handler: async ({ req, res, body }) => {
       const user = req.user
-      if (!user?.organizationId || !authModule) {
+      if (!user) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      const orgId = user ? resolveOrganizationIdForReports(user) : null
+      if (!orgId || !authModule) {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
@@ -278,7 +294,7 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         )
         return
       }
-      const paywallEligible = await hasRecentMaintenanceValueEvent(user.organizationId)
+      const paywallEligible = await hasRecentMaintenanceValueEvent(orgId)
       if (!paywallEligible) {
         commonPresenter.error(
           res,
@@ -288,7 +304,7 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         )
         return
       }
-      await authModule.users.updateOrganizationPlan(user.organizationId, 'premium')
+      await authModule.users.updateOrganizationPlan(orgId, 'premium')
       try {
         await trackSubscriptionEvent({
           eventName: 'subscription_trial_started',
@@ -337,11 +353,16 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
     },
     handler: async ({ req, res, body }) => {
       const user = req.user
-      if (!user?.organizationId || !authModule) {
+      if (!user) {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
-      await authModule.users.updateOrganizationPlan(user.organizationId, 'free')
+      const orgId = user ? resolveOrganizationIdForReports(user) : null
+      if (!orgId || !authModule) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      await authModule.users.updateOrganizationPlan(orgId, 'free')
       await authModule.users.updatePlanOverride(user.id, null)
       let userRows = await authModule.db
         .select({ idInt: users.idInt })
@@ -356,7 +377,7 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
             email: user.email,
             passwordHash: 'in-memory-auth-placeholder',
             role: user.role,
-            organizationId: user.organizationId,
+            organizationId: orgId,
             planOverride: user.planOverride ?? null,
             organizationRole: 'owner',
             emailVerifiedAt: new Date(),
@@ -379,7 +400,7 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         return
       }
       await authModule.db.insert(subscriptionCancellation).values({
-        organizationId: user.organizationId,
+        organizationId: orgId,
         userId: user.id,
         userIdInt,
         reason: body?.reason ?? 'unknown',
@@ -420,18 +441,23 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
       },
     },
     handler: async ({ req, res }) => {
-      const orgId = req.user?.organizationId
-      if (!orgId || !authModule) {
+      const scope = req.user ? resolveReportResourceScope(req.user) : null
+      const orgId = scope?.organizationId ?? null
+      if (!scope || !orgId || !authModule) {
         commonPresenter.ok(res, { items: [] })
         return
       }
+      const policyWhere =
+        buildSqlFilterFromPolicies(reportPolicyConditions(scope), {
+          organizationId: subscriptionCancellation.organizationId,
+        }) ?? eq(subscriptionCancellation.organizationId, orgId)
       const rows = await authModule.db
         .select({
           reason: subscriptionCancellation.reason,
           count: sql<number>`count(*)::int`,
         })
         .from(subscriptionCancellation)
-        .where(eq(subscriptionCancellation.organizationId, orgId))
+        .where(policyWhere)
         .groupBy(subscriptionCancellation.reason)
         .orderBy(desc(sql`count(*)`))
       commonPresenter.ok(res, { items: rows })
@@ -456,25 +482,33 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
       },
     },
     handler: async ({ req, res }) => {
-      const orgId = req.user?.organizationId
+      const scope = req.user ? resolveReportResourceScope(req.user) : null
+      const orgId = scope?.organizationId ?? null
       const currentUserId = req.user?.id
-      if (!orgId || !authModule || !currentUserId) {
+      if (!scope || !orgId || !authModule || !currentUserId) {
         commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
         return
       }
-      const [events, rollups, orgUsers] = await Promise.all([
+      const orgUsersWhere =
+        buildSqlFilterFromPolicies(reportPolicyConditions(scope), {
+          organizationId: users.organizationId,
+        }) ?? eq(users.organizationId, orgId)
+      const [events, orgUsers] = await Promise.all([
         listRawEvents(),
-        listDailyRollups(),
         authModule.db
           .select({ id: users.id })
           .from(users)
-          .where(eq(users.organizationId, orgId)),
+          .where(orgUsersWhere),
       ])
       const orgUserIds = new Set(
         orgUsers.length > 0 ? orgUsers.map((userRow) => userRow.id) : [currentUserId],
       )
       const orgEvents = events.filter((event) => event.userId && orgUserIds.has(event.userId))
-      commonPresenter.ok(res, buildSubscriptionRetentionSummary(orgEvents, rollups))
+      // Avoid leaking global rollup baselines into org-scoped retention summaries.
+      commonPresenter.ok(
+        res,
+        filterSubscriptionRetentionResponse(scope, buildSubscriptionRetentionSummary(orgEvents, [])),
+      )
     },
   })
 
@@ -535,8 +569,9 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
         commonPresenter.error(res, 400, 'validation_error', 'Invalid request query')
         return
       }
-      const orgId = req.user?.organizationId
-      if (!orgId || !vehicleRepo) {
+      const scope = req.user ? resolveReportResourceScope(req.user) : null
+      const orgId = scope?.organizationId ?? null
+      if (!scope || !orgId || !vehicleRepo) {
         commonPresenter.ok(res, {
           range: {
             from: query.from,
@@ -583,11 +618,14 @@ export const createReportRouter = (authModule?: AuthModule): Router => {
 
       commonPresenter.ok(
         res,
-        buildSpendKpis({
-          query,
-          currentRows,
-          previousRows,
-        }),
+        filterSpendKpisResponse(
+          scope,
+          buildSpendKpis({
+            query,
+            currentRows,
+            previousRows,
+          }),
+        ),
       )
     },
   })

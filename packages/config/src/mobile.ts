@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { EnvValidationError, formatZodIssues } from './errors.js'
+import { EnvValidationError, formatZodIssues } from './errors'
 
 const mobileEnvSchema = z.object({
   EXPO_PUBLIC_API_URL: z.string().url().optional(),

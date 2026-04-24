@@ -11,6 +11,10 @@ import {
 } from './application/change-password-use-case.js'
 import { createLoginUseCase, type LoginUseCase } from './application/login-use-case.js'
 import {
+  createAuthorizationService,
+  type AuthorizationService,
+} from './application/authorization-service.js'
+import {
   createAcceptInviteUseCase,
   createAcceptInviteAndRegisterUseCase,
   createListOrganizationInvitesUseCase,
@@ -32,7 +36,6 @@ import {
   type LogoutAllUseCase,
   type LogoutUseCase,
 } from './application/logout-use-case.js'
-import { permissionsForRole } from './application/permissions.js'
 import { createRefreshUseCase, type RefreshUseCase } from './application/refresh-use-case.js'
 import { createRegisterUseCase, type RegisterUseCase } from './application/register-use-case.js'
 import {
@@ -75,7 +78,7 @@ export type AuthModule = {
   organizationInvites: OrganizationInviteRepository
   inviteEmailSender: InviteEmailSender
   clock: Clock
-  permissionsForRole: typeof permissionsForRole
+  authorization: AuthorizationService
   useCases: {
     register: RegisterUseCase
     login: LoginUseCase
@@ -141,6 +144,7 @@ export const createAuthModule = async (
     refreshTokens,
     clock,
   })
+  const authorization = createAuthorizationService()
 
   return {
     config: authConfig,
@@ -155,7 +159,7 @@ export const createAuthModule = async (
     organizationInvites,
     inviteEmailSender,
     clock,
-    permissionsForRole,
+    authorization,
     useCases: {
       register: createRegisterUseCase({
         userRepository: users,
@@ -189,13 +193,16 @@ export const createAuthModule = async (
         invites: organizationInvites,
         clock,
         defaultExpiresDays: authConfig.invites.defaultExpiresDays,
+        authorization,
       }),
       listOrganizationInvites: createListOrganizationInvitesUseCase({
         invites: organizationInvites,
+        authorization,
       }),
       revokeOrganizationInvite: createRevokeOrganizationInviteUseCase({
         invites: organizationInvites,
         clock,
+        authorization,
       }),
       resendOrganizationInvite: createResendOrganizationInviteUseCase({
         invites: organizationInvites,
@@ -204,6 +211,7 @@ export const createAuthModule = async (
         resendCooldownMs: authConfig.invites.resendCooldownSeconds * 1000,
         resendCooldownOwnerMs: authConfig.invites.resendCooldownOwnerSeconds * 1000,
         resendCooldownAdminMs: authConfig.invites.resendCooldownAdminSeconds * 1000,
+        authorization,
       }),
       previewOrganizationInvite: createPreviewInviteUseCase({
         invites: organizationInvites,

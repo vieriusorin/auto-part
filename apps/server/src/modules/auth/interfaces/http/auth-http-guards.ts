@@ -1,4 +1,4 @@
-import type { PlanTier } from '@autocare/shared'
+import type { AuthorizationAction, PlanTier } from '@autocare/shared'
 import type { RequestHandler } from 'express'
 import type { AuthModule } from '../../auth-module.js'
 import { createRequireAuthMiddleware } from './require-auth.middleware.js'
@@ -11,7 +11,7 @@ type RequirePlanInput =
 
 export type AuthHttpGuards = {
   requireAuth: RequestHandler
-  requirePermission: (permission: string) => RequestHandler
+  requirePermission: (permission: AuthorizationAction) => RequestHandler
   requirePlan: (input: RequirePlanInput) => RequestHandler
 }
 
@@ -20,6 +20,7 @@ export const createAuthHttpGuards = (authModule: AuthModule): AuthHttpGuards => 
     jwtSigner: authModule.jwtSigner,
     cookieConfig: authModule.cookieConfig,
     users: authModule.users,
+    permissionsForRole: authModule.authorization.permissionsForRole,
   })
 
   return {

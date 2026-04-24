@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react'
-import type { ApiError } from '../client.js'
-import { hasAllPermissions, hasAnyPermission, hasPermission } from '../permissions.js'
-import { useLogin, useLogout, useMe, useRegister } from './auth-hooks.js'
+import type { ApiError } from '../client'
+import { hasAllPermissions, hasAnyPermission, hasPermission } from '../permissions'
+import { useLogin, useLogout, useMe, useRegister } from './auth-hooks'
 
 export type UseAuthResult = {
   user: ReturnType<typeof useMe>['data'] | undefined

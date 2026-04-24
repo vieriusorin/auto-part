@@ -176,6 +176,25 @@ describe('HTTP access control', () => {
     expect(allowed.status).toBe(200)
   })
 
+  it('enforces admin-only access for affiliate analytics KPIs', async () => {
+    const { app, users } = await buildApp()
+    const userAccount = await registerAndGetToken(app, 'affiliate-kpi-user@example.com')
+
+    const forbidden = await request(app)
+      .get('/api/affiliate/kpi-gates')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${userAccount.token}`)
+    expect(forbidden.status).toBe(403)
+    expect(forbidden.body.error.code).toBe('forbidden_permission')
+
+    users._setRole(userAccount.userId, 'admin')
+    const allowed = await request(app)
+      .get('/api/affiliate/kpi-gates')
+      .set('X-Client', 'mobile')
+      .set('Authorization', `Bearer ${userAccount.token}`)
+    expect(allowed.status).toBe(200)
+  })
+
   it('enforces premium plan for reports surfaces with explicit plan errors', async () => {
     const { app, users } = await buildApp()
     const account = await registerAndGetToken(app, 'reports-plan-check@example.com')

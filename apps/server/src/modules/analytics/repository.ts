@@ -1,4 +1,3 @@
-import { and, eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import { createSelectSchema } from 'drizzle-zod'
@@ -6,6 +5,7 @@ import { Pool } from 'pg'
 import type { z } from 'zod'
 import { loadServerEnv } from '../../config/load-env.js'
 import type { NormalizedAnalyticsEvent } from './schemas.js'
+import { buildSqlFilterFromPolicies } from '../auth/application/policy-sql.js'
 
 loadServerEnv()
 
@@ -199,23 +199,23 @@ const createDbStorage = (): AnalyticsStorage => {
       }
     },
     listDailyRollups: async (filter) => {
-      const predicates = []
-      if (filter?.country !== undefined) {
-        predicates.push(eq(analyticsDailyRollups.country, filter.country))
-      }
-      if (filter?.platform !== undefined) {
-        predicates.push(eq(analyticsDailyRollups.platform, filter.platform))
-      }
-      if (filter?.channel !== undefined) {
-        predicates.push(eq(analyticsDailyRollups.channel, filter.channel))
-      }
-      const rows =
-        predicates.length > 0
-          ? await db
-              .select()
-              .from(analyticsDailyRollups)
-              .where(and(...predicates))
-          : await db.select().from(analyticsDailyRollups)
+      const policyWhere = buildSqlFilterFromPolicies(
+        [
+          {
+            country: filter?.country,
+            platform: filter?.platform,
+            channel: filter?.channel,
+          },
+        ],
+        {
+          country: analyticsDailyRollups.country,
+          platform: analyticsDailyRollups.platform,
+          channel: analyticsDailyRollups.channel,
+        },
+      )
+      const rows = policyWhere
+        ? await db.select().from(analyticsDailyRollups).where(policyWhere)
+        : await db.select().from(analyticsDailyRollups)
       return rows.map((row) => ({
         date: row.date,
         country: row.country,

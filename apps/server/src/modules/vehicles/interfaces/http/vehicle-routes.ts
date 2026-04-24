@@ -29,6 +29,8 @@ import {
   VehicleIdParamsSchema,
   ReminderIdParamsSchema,
   VehicleResponseSchema,
+  type AuthorizationAction,
+  AuthorizationActions,
 } from '@autocare/shared'
 import type { Request, RequestHandler } from 'express'
 import { Router } from 'express'
@@ -41,6 +43,10 @@ import {
   createAuthHttpGuards,
   type AuthHttpGuards,
 } from '../../../auth/interfaces/http/auth-http-guards.js'
+import {
+  createUserAccessScopeFromAuthUser,
+  resolveTrustActorRole,
+} from '../../../auth/application/access-scope.js'
 import { enforceTrustPolicy } from '../../../trust/policy-middleware.js'
 import {
   createVehicleRepository,
@@ -157,9 +163,10 @@ const createMaintenanceTrustMiddleware =
     }
     const veh = await repos.findOwned(log.vehicleId, orgId)
     const locked = Boolean(veh?.isLocked || log.lockedAt)
+    const scope = createUserAccessScopeFromAuthUser(user)
     const r = req as Request & { trustLocked?: boolean; userRole?: 'member' | 'admin' | 'service' }
     r.trustLocked = locked
-    r.userRole = user.role === 'admin' ? 'admin' : 'member'
+    r.userRole = resolveTrustActorRole(scope)
     next()
   }
 
@@ -167,7 +174,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
   const router = Router()
   const repos = createVehicleRepository(authModule.db)
   const authGuards = guards ?? createAuthHttpGuards(authModule)
-  const requirePermission = (permission: string): RequestHandler =>
+  const requirePermission = (permission: AuthorizationAction): RequestHandler =>
     authGuards.requirePermission(permission)
   const requireAuthOnly: RequestHandler = authGuards.requireAuth
 
@@ -180,7 +187,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     tags: [VEHICLES_TAG],
     summary: 'List vehicles for the current organization',
     operationId: 'listVehicles',
-    middlewares: [requirePermission('vehicles.read'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.vehiclesRead), requireOrg],
     responses: {
       200: {
         description: 'Vehicles',
@@ -201,7 +208,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     summary: 'List reminders for a vehicle',
     operationId: 'listVehicleReminders',
     params: VehicleIdParamsSchema,
-    middlewares: [requirePermission('vehicles.read'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.vehiclesRead), requireOrg],
     responses: {
       200: {
         description: 'Vehicle reminders',
@@ -229,7 +236,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     operationId: 'createVehicleReminder',
     params: VehicleIdParamsSchema,
     body: CreateReminderBodySchema,
-    middlewares: [requirePermission('logs.create'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.logsCreate), requireOrg],
     responses: {
       201: {
         description: 'Reminder created',
@@ -269,7 +276,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     operationId: 'updateVehicleReminder',
     params: ReminderIdParamsSchema,
     body: UpdateReminderBodySchema,
-    middlewares: [requirePermission('logs.update'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.logsUpdate), requireOrg],
     responses: {
       200: {
         description: 'Reminder updated',
@@ -308,7 +315,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     summary: 'Get prioritized action feed for a vehicle',
     operationId: 'getVehicleActionFeed',
     params: VehicleIdParamsSchema,
-    middlewares: [requirePermission('vehicles.read'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.vehiclesRead), requireOrg],
     responses: {
       200: {
         description: 'Vehicle action feed',
@@ -360,7 +367,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     summary: 'Get basic 3-6 month maintenance forecast',
     operationId: 'getVehicleForecast',
     params: VehicleIdParamsSchema,
-    middlewares: [requirePermission('vehicles.read'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.vehiclesRead), requireOrg],
     responses: {
       200: {
         description: 'Vehicle forecast',
@@ -401,7 +408,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     summary: 'List media/documents for a vehicle timeline',
     operationId: 'listVehicleDocuments',
     params: VehicleIdParamsSchema,
-    middlewares: [requirePermission('vehicles.read'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.vehiclesRead), requireOrg],
     responses: {
       200: {
         description: 'Vehicle documents',
@@ -429,7 +436,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     operationId: 'createVehicleDocument',
     params: VehicleIdParamsSchema,
     body: CreateVehicleDocumentBodySchema,
-    middlewares: [requirePermission('logs.create'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.logsCreate), requireOrg],
     responses: {
       201: {
         description: 'Vehicle document created',
@@ -487,7 +494,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     summary: 'List assigned members for a vehicle',
     operationId: 'listVehicleMembers',
     params: VehicleIdParamsSchema,
-    middlewares: [requirePermission('vehicles.read'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.vehiclesRead), requireOrg],
     responses: {
       200: {
         description: 'Vehicle members',
@@ -515,7 +522,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     operationId: 'upsertVehicleMember',
     params: VehicleIdParamsSchema,
     body: UpsertVehicleMemberBodySchema,
-    middlewares: [requirePermission('admin.users.manage'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.adminUsersManage), requireOrg],
     responses: {
       200: {
         description: 'Vehicle member updated',
@@ -572,7 +579,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     summary: 'Create a vehicle',
     operationId: 'createVehicle',
     body: createVehicleSchema,
-    middlewares: [requirePermission('vehicles.create'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.vehiclesCreate), requireOrg],
     responses: {
       201: {
         description: 'Vehicle created',
@@ -597,7 +604,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     summary: 'Get vehicle by id',
     operationId: 'getVehicle',
     params: VehicleIdParamsSchema,
-    middlewares: [requirePermission('vehicles.read'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.vehiclesRead), requireOrg],
     responses: {
       200: {
         description: 'Vehicle',
@@ -624,7 +631,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     operationId: 'updateVehicle',
     params: VehicleIdParamsSchema,
     body: updateVehicleBodySchema,
-    middlewares: [requirePermission('vehicles.update'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.vehiclesUpdate), requireOrg],
     responses: {
       200: {
         description: 'Vehicle updated',
@@ -651,7 +658,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     summary: 'List maintenance logs for a vehicle',
     operationId: 'listMaintenanceLogs',
     params: VehicleIdParamsSchema,
-    middlewares: [requirePermission('logs.read'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.logsRead), requireOrg],
     responses: {
       200: {
         description: 'Maintenance logs',
@@ -678,7 +685,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     summary: 'Lock a vehicle',
     operationId: 'lockVehicle',
     params: VehicleIdParamsSchema,
-    middlewares: [requirePermission('vehicles.update'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.vehiclesUpdate), requireOrg],
     responses: {
       200: {
         description: 'Vehicle lock status',
@@ -714,7 +721,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     operationId: 'createMaintenanceLog',
     params: VehicleIdParamsSchema,
     body: CreateMaintenanceBodySchema,
-    middlewares: [requirePermission('logs.create'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.logsCreate), requireOrg],
     responses: {
       201: {
         description: 'Maintenance entry created',
@@ -765,7 +772,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     params: MaintenanceIdParamsSchema,
     body: UpdateMaintenanceBodySchema,
     middlewares: [
-      requirePermission('logs.update'),
+      requirePermission(AuthorizationActions.logsUpdate),
       requireOrg,
       createMaintenanceTrustMiddleware(repos),
       enforceTrustPolicy,
@@ -836,7 +843,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     summary: 'List fuel entries for vehicle',
     operationId: 'listFuelEntries',
     params: VehicleIdParamsSchema,
-    middlewares: [requirePermission('vehicles.read'), requireOrg],
+    middlewares: [requirePermission(AuthorizationActions.vehiclesRead), requireOrg],
     responses: {
       200: {
         description: 'Fuel entries list',
@@ -854,7 +861,7 @@ export const createVehicleRouter = (authModule: AuthModule, guards?: AuthHttpGua
     tags: [VEHICLES_TAG],
     summary: 'Scan vehicle document',
     operationId: 'scanVehicleDocument',
-    middlewares: [requirePermission('vehicles.create'), requireOrg, requirePremium],
+    middlewares: [requirePermission(AuthorizationActions.vehiclesCreate), requireOrg, requirePremium],
     responses: {
       200: {
         description: 'Extracted vehicle info',

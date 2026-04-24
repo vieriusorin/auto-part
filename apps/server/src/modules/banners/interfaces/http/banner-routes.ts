@@ -50,7 +50,12 @@ export const createBannerRouter = (authModule: AuthModule, guards?: AuthHttpGuar
       },
     },
     handler: async ({ req, res }) => {
-      const rows = await repo.listVisibleForUser(req.user!.id, new Date())
+      const user = req.user
+      if (!user) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      const rows = await repo.listVisibleForUser(user.id, new Date())
       commonPresenter.ok(res, { items: rows.map(mapBanner) })
     },
   })
@@ -70,13 +75,22 @@ export const createBannerRouter = (authModule: AuthModule, guards?: AuthHttpGuar
       },
     },
     handler: async ({ req, res, params }) => {
-      const exists = await repo.existsByKey(params!.bannerKey)
+      const user = req.user
+      if (!user) {
+        commonPresenter.error(res, 401, 'not_authenticated', 'Authentication required')
+        return
+      }
+      if (!params) {
+        commonPresenter.error(res, 400, 'validation_error', 'Invalid request params')
+        return
+      }
+      const exists = await repo.existsByKey(params.bannerKey)
       if (!exists) {
         commonPresenter.error(res, 404, 'banner_not_found', 'Banner not found')
         return
       }
 
-      await repo.dismiss(req.user!.id, params!.bannerKey, new Date())
+      await repo.dismiss(user.id, params.bannerKey, new Date())
       commonPresenter.ok(res, { dismissed: true as const })
     },
   })

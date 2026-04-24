@@ -2,6 +2,17 @@ import { maintenanceLog, users, vehicle, vehicleDocument, vehicleMember, vehicle
 import type { CreateVehicleInput } from '@autocare/shared'
 import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
+import {
+  buildOrganizationMaintenanceScope,
+  buildOrganizationMaintenanceRangeScope,
+  buildOrganizationUserScope,
+  buildOrganizationVehicleScope,
+  buildReminderOwnershipScope,
+  buildVehicleDocumentScope,
+  buildVehicleMemberScope,
+  buildVehicleReminderScope,
+  buildVehicleOwnershipScope,
+} from './authorization-scope.js'
 
 const vehicleTable = vehicle
 
@@ -120,7 +131,7 @@ const findOwnedVehicle = async (
   const rows = await db
     .select()
     .from(vehicle)
-    .where(and(eq(vehicle.id, vehicleId), eq(vehicle.organizationId, organizationId)))
+    .where(buildVehicleOwnershipScope(vehicleId, organizationId))
     .limit(1)
   const row = rows[0] ?? null
   if (!row || row.idInt === null) {
@@ -139,10 +150,7 @@ const findMaintenanceOwnedQuery = async (
     .from(maintenanceLog)
     .innerJoin(vehicleTable, eq(maintenanceLog.vehicleIdInt, vehicleTable.idInt))
     .where(
-      and(
-        eq(maintenanceLog.id, maintenanceId),
-        eq(vehicleTable.organizationId, organizationId),
-      ),
+      buildOrganizationMaintenanceScope(maintenanceId, organizationId),
     )
     .limit(1)
   return rows[0]?.log ?? null
@@ -156,7 +164,7 @@ const findUserInOrganization = async (
   const rows = await db
     .select({ id: users.id, idInt: users.idInt })
     .from(users)
-    .where(and(eq(users.id, userId), eq(users.organizationId, organizationId)))
+    .where(buildOrganizationUserScope(userId, organizationId))
     .limit(1)
   const row = rows[0] ?? null
   if (!row?.id || row.idInt === null) {
@@ -170,7 +178,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
     return db
       .select()
       .from(vehicle)
-      .where(eq(vehicle.organizationId, organizationId))
+      .where(buildOrganizationVehicleScope(organizationId))
       .orderBy(desc(vehicle.createdAt))
   },
 
@@ -227,7 +235,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
     const [row] = await db
       .update(vehicle)
       .set(updates)
-      .where(and(eq(vehicle.id, vehicleId), eq(vehicle.organizationId, organizationId)))
+      .where(buildVehicleOwnershipScope(vehicleId, organizationId))
       .returning()
     return row ?? null
   },
@@ -277,7 +285,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
   },
   listMaintenanceForOrganizationInRange: async ({ organizationId, from, to, vehicleIds, categories }) => {
     const predicates = [
-      eq(vehicleTable.organizationId, organizationId),
+      buildOrganizationMaintenanceRangeScope(organizationId),
       gte(maintenanceLog.date, from),
       lte(maintenanceLog.date, to),
     ]
@@ -339,12 +347,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
     return db
       .select()
       .from(vehicleDocument)
-      .where(
-        and(
-          eq(vehicleDocument.vehicleIdInt, v.internalId),
-          eq(vehicleDocument.organizationId, organizationId),
-        ),
-      )
+      .where(buildVehicleDocumentScope(v.internalId, organizationId))
       .orderBy(desc(vehicleDocument.createdAt))
   },
 
@@ -402,9 +405,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
     return db
       .select()
       .from(vehicleMember)
-      .where(
-        and(eq(vehicleMember.vehicleIdInt, v.internalId), eq(vehicleMember.organizationId, organizationId)),
-      )
+      .where(buildVehicleMemberScope(v.internalId, organizationId))
       .orderBy(desc(vehicleMember.createdAt))
   },
 
@@ -428,8 +429,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
       .where(
         and(
           eq(vehicleMember.vehicleId, vehicleId),
-          eq(vehicleMember.vehicleIdInt, v.internalId),
-          eq(vehicleMember.organizationId, organizationId),
+          buildVehicleMemberScope(v.internalId, organizationId),
           eq(vehicleMember.userId, userId),
         ),
       )
@@ -476,12 +476,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
     return db
       .select()
       .from(vehicleReminder)
-      .where(
-        and(
-          eq(vehicleReminder.vehicleIdInt, v.internalId),
-          eq(vehicleReminder.organizationId, organizationId),
-        ),
-      )
+      .where(buildVehicleReminderScope(v.internalId, organizationId))
       .orderBy(vehicleReminder.dueAt, desc(vehicleReminder.createdAt))
   },
 
@@ -528,11 +523,7 @@ export const createVehicleRepository = (db: NodePgDatabase): VehicleRepository =
       .select()
       .from(vehicleReminder)
       .where(
-        and(
-          eq(vehicleReminder.id, reminderId),
-          eq(vehicleReminder.vehicleIdInt, owned.internalId),
-          eq(vehicleReminder.organizationId, organizationId),
-        ),
+        buildReminderOwnershipScope(reminderId, owned.internalId, organizationId),
       )
       .limit(1)
     if (!existing) {

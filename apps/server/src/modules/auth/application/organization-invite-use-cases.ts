@@ -20,6 +20,7 @@ import type {
 } from '../infrastructure/organization-invite-repository.js'
 import type { PasswordHasher, PasswordPolicy } from '../infrastructure/password-hasher.js'
 import type { UserRepository } from '../infrastructure/user-repository.js'
+import type { AuthorizationService } from './authorization-service.js'
 import type { SessionService } from './session-service.js'
 
 export type CreateOrganizationInviteUseCase = (
@@ -66,19 +67,23 @@ export type AcceptInviteUseCase = (
 const hashInviteToken = (rawToken: string): string =>
   createHash('sha256').update(rawToken).digest('hex')
 
-const canManageOrgInvites = (actor: UserRecord, organizationId: string): boolean => {
-  if (actor.role === 'admin') return true
-  if (actor.organizationId !== organizationId) return false
-  return actor.organizationRole === 'owner' || actor.organizationRole === 'admin'
-}
-
 export const createOrganizationInviteUseCase = (deps: {
   invites: OrganizationInviteRepository
   clock: Clock
   defaultExpiresDays: number
+  authorization: AuthorizationService
 }): CreateOrganizationInviteUseCase => {
   return async (input, actor) => {
-    if (!canManageOrgInvites(actor, input.organizationId)) {
+    if (
+      !deps.authorization.canManageOrganizationInvites(
+        {
+          userRole: actor.role,
+          organizationId: actor.organizationId,
+          organizationRole: actor.organizationRole,
+        },
+        input.organizationId,
+      )
+    ) {
       throw inviteForbidden()
     }
     const rawToken = randomBytes(32).toString('base64url')
@@ -100,9 +105,19 @@ export const createOrganizationInviteUseCase = (deps: {
 
 export const createListOrganizationInvitesUseCase = (deps: {
   invites: OrganizationInviteRepository
+  authorization: AuthorizationService
 }): ListOrganizationInvitesUseCase => {
   return async (organizationId, actor) => {
-    if (!canManageOrgInvites(actor, organizationId)) {
+    if (
+      !deps.authorization.canManageOrganizationInvites(
+        {
+          userRole: actor.role,
+          organizationId: actor.organizationId,
+          organizationRole: actor.organizationRole,
+        },
+        organizationId,
+      )
+    ) {
       throw inviteForbidden()
     }
     return deps.invites.listForOrganization(organizationId)
@@ -112,9 +127,19 @@ export const createListOrganizationInvitesUseCase = (deps: {
 export const createRevokeOrganizationInviteUseCase = (deps: {
   invites: OrganizationInviteRepository
   clock: Clock
+  authorization: AuthorizationService
 }): RevokeOrganizationInviteUseCase => {
   return async (inviteId, organizationId, actor) => {
-    if (!canManageOrgInvites(actor, organizationId)) {
+    if (
+      !deps.authorization.canManageOrganizationInvites(
+        {
+          userRole: actor.role,
+          organizationId: actor.organizationId,
+          organizationRole: actor.organizationRole,
+        },
+        organizationId,
+      )
+    ) {
       throw inviteForbidden()
     }
     const invite = await deps.invites.findById(inviteId)
@@ -139,9 +164,19 @@ export const createResendOrganizationInviteUseCase = (deps: {
   resendCooldownMs: number
   resendCooldownOwnerMs: number
   resendCooldownAdminMs: number
+  authorization: AuthorizationService
 }): ResendOrganizationInviteUseCase => {
   return async (inviteId, organizationId, actor) => {
-    if (!canManageOrgInvites(actor, organizationId)) {
+    if (
+      !deps.authorization.canManageOrganizationInvites(
+        {
+          userRole: actor.role,
+          organizationId: actor.organizationId,
+          organizationRole: actor.organizationRole,
+        },
+        organizationId,
+      )
+    ) {
       throw inviteForbidden()
     }
     const existing = await deps.invites.findById(inviteId)

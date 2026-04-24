@@ -2,6 +2,7 @@
 
 Use these by default in this repository:
 
+- `autocare-design-system`
 - `nativewind-ui`
 - `yg-feature-builder`
 - `yg-component-creator`

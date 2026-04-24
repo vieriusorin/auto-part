@@ -48,6 +48,11 @@ export const queryKeys = {
     cancelReasons: () => ['subscription', 'cancel-reasons'] as const,
     retentionSummary: () => ['subscription', 'retention-summary'] as const,
   },
+  affiliate: {
+    all: ['affiliate'] as const,
+    offers: (intentSurface?: 'maintenance_due' | 'service_report_ready' | 'cost_anomaly_detected') =>
+      ['affiliate', 'offers', intentSurface ?? 'all'] as const,
+  },
   utility: {
     all: ['utility'] as const,
     washSuggestion: () => ['utility', 'wash-suggestion'] as const,

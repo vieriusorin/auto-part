@@ -1,4 +1,4 @@
-import type { ClientKind, PlanTier, UserRole } from '@autocare/shared'
+import type { ClientKind, Permission, PlanTier, UserRole } from '@autocare/shared'
 
 declare global {
   namespace Express {
@@ -10,7 +10,7 @@ declare global {
       organizationPlan: PlanTier
       planOverride: PlanTier | null
       effectivePlan: PlanTier
-      permissions: string[]
+      permissions: Permission[]
       tokenId: string
     }
 

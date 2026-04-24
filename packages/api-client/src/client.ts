@@ -1,5 +1,5 @@
 import createOpenApiClient, { type Middleware } from 'openapi-fetch'
-import type { paths } from './types.gen.js'
+import type { paths } from './types.gen'
 
 export type ApiClient = ReturnType<typeof createOpenApiClient<paths>>
 

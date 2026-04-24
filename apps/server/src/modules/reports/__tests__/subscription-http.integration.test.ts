@@ -2,6 +2,7 @@ import type { ServerEnv } from '@autocare/config/server'
 import cookieParser from 'cookie-parser'
 import express from 'express'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
+import { Client } from 'pg'
 import request from 'supertest'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { clearRawEvents, listRawEvents } from '../../analytics/repository.js'
@@ -91,7 +92,28 @@ const buildApp = async (db: NodePgDatabase) => {
   return app
 }
 
-describe.skipIf(!process.env.DATABASE_URL)('subscription HTTP integration', () => {
+const isDatabaseReachable = async (connectionString: string | undefined): Promise<boolean> => {
+  if (!connectionString) {
+    return false
+  }
+  const client = new Client({
+    connectionString,
+    connectionTimeoutMillis: 1000,
+  })
+  try {
+    await client.connect()
+    await client.query('select 1')
+    return true
+  } catch {
+    return false
+  } finally {
+    await client.end().catch(() => undefined)
+  }
+}
+
+const hasReachableDatabase = await isDatabaseReachable(process.env.DATABASE_URL)
+
+describe.skipIf(!hasReachableDatabase)('subscription HTTP integration', () => {
   beforeEach(async () => {
     await clearRawEvents()
   })
@@ -239,6 +261,14 @@ describe.skipIf(!process.env.DATABASE_URL)('subscription HTTP integration', () =
     expect(retentionSummary.body.data.trialToPaidPercent).toBe(100)
     expect(retentionSummary.body.data.month2PayerRetentionPercent).toBe(100)
     expect(retentionSummary.body.data.refundRatePercent).toBe(100)
+    expect(['low', 'medium', 'high']).toContain(retentionSummary.body.data.confidence.trialStartRate)
+    expect(['low', 'medium', 'high']).toContain(retentionSummary.body.data.confidence.trialToPaidRate)
+    expect(['low', 'medium', 'high']).toContain(retentionSummary.body.data.confidence.payerLifecycleRates)
+    expect(['low', 'medium', 'high']).toContain(retentionSummary.body.data.confidence.freeTierD30Delta)
+    expect(retentionSummary.body.data.sampleSize.lowSampleThreshold).toBe(10)
+    expect(retentionSummary.body.data.sampleSize.paywallViews).toBe(0)
+    expect(retentionSummary.body.data.sampleSize.trialStarts).toBe(0)
+    expect(retentionSummary.body.data.sampleSize.paidConversions).toBe(0)
     expect(typeof retentionSummary.body.data.trialStartRatePercent).toBe('number')
     expect(Array.isArray(retentionSummary.body.data.notes)).toBe(true)
   })
@@ -615,5 +645,9 @@ describe.skipIf(!process.env.DATABASE_URL)('subscription HTTP integration', () =
     expect(summaryB.body.data.trialToPaidPercent).toBe(0)
     expect(summaryB.body.data.month2PayerRetentionPercent).toBe(0)
     expect(summaryB.body.data.refundRatePercent).toBe(0)
+    expect(summaryB.body.data.freeTierD30RetentionDeltaPercent).toBe(0)
+    expect(summaryB.body.data.notes[0]).toBe(
+      'Detailed sample size fields are hidden for non-elevated report readers.',
+    )
   })
 })

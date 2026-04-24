@@ -2,6 +2,7 @@ import { Router } from 'express'
 import {
   AnalyticsDashboardQuerySchema,
   AnalyticsDashboardResponseDataSchema,
+  AuthorizationActions,
   IngestEventsBodySchema,
   IngestEventsResponseDataSchema,
 } from '@autocare/shared'
@@ -17,7 +18,7 @@ const ANALYTICS_TAG = 'Analytics'
 
 export const createAnalyticsRouter = (): Router => {
   const router = Router()
-  const requireAnalyticsRead = createRequirePermissionMiddleware('admin.analytics.read')
+  const requireAnalyticsRead = createRequirePermissionMiddleware(AuthorizationActions.adminAnalyticsRead)
   const requirePremium = createRequirePlanMiddleware({ minimumPlan: 'premium' })
 
   registerRoute(router, '/api', {

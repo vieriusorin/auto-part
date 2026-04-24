@@ -140,6 +140,193 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/affiliate/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List high-intent affiliate offers with explicit disclosure metadata */
+        get: operations["listAffiliateOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/affiliate/disclosure-audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get affiliate disclosure compliance audit snapshot */
+        get: operations["getAffiliateDisclosureAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/affiliate/phase-exit-readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Evaluate Phase 3 affiliate KPI exit readiness */
+        get: operations["getAffiliatePhaseExitReadiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/affiliate/kpi-gates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get affiliate phase KPI gate snapshot from persisted event aggregates */
+        get: operations["getAffiliateKpiGates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/affiliate/trends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get affiliate trend buckets for conversion and trust metrics */
+        get: operations["getAffiliateTrends"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/affiliate/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get affiliate partner dashboard with trust segmentation */
+        get: operations["getAffiliateDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/affiliate/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get affiliate click aggregates by intent surface and category */
+        get: operations["getAffiliateMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/affiliate/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get affiliate trust-impact summary from exposure/click/complaint events */
+        get: operations["getAffiliateImpact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/affiliate/click": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Track affiliate click with disclosure and consent-aware attribution */
+        post: operations["trackAffiliateClick"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/affiliate/exposure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Track affiliate placement exposure at high-intent surfaces */
+        post: operations["trackAffiliateExposure"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/affiliate/complaint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report trust complaint related to affiliate placements */
+        post: operations["reportAffiliateComplaint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicles": {
         parameters: {
             query?: never;
@@ -1356,6 +1543,663 @@ export interface operations {
                 };
             };
             /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    listAffiliateOffers: {
+        parameters: {
+            query?: {
+                intentSurface?: "maintenance_due" | "service_report_ready" | "cost_anomaly_detected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Affiliate offers for requested intent surface */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            items: {
+                                id: string;
+                                partnerName: string;
+                                title: string;
+                                description: string;
+                                category: string;
+                                /** @enum {string} */
+                                intentSurface: "maintenance_due" | "service_report_ready" | "cost_anomaly_detected";
+                                /** Format: uri */
+                                targetUrl: string;
+                                /** @enum {string} */
+                                disclosureLabel: "Sponsored recommendation";
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAffiliateDisclosureAudit: {
+        parameters: {
+            query?: {
+                country?: string;
+                platform?: "ios" | "android";
+                channel?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Affiliate disclosure compliance audit */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            meta: {
+                                /** @enum {string} */
+                                audience: "admin";
+                            };
+                            totals: {
+                                trackedInteractions: number;
+                                compliantInteractions: number;
+                                violations: number;
+                            };
+                            disclosureCompliancePercent: number;
+                            checkpoint: {
+                                disclosureComplianceFull: boolean;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAffiliatePhaseExitReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Phase 3 readiness snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            meta: {
+                                /** @enum {string} */
+                                audience: "admin";
+                            };
+                            ready: boolean;
+                            criteria: {
+                                /** @enum {string} */
+                                key: "ctr_at_least_3_percent" | "conversion_at_least_5_percent" | "disclosure_compliance_full" | "no_retention_decline_detected" | "hidden_sponsorship_complaints_below_1_percent";
+                                passed: boolean;
+                                value?: number;
+                                threshold?: number;
+                                reason?: string;
+                            }[];
+                            missingEvidence: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAffiliateKpiGates: {
+        parameters: {
+            query?: {
+                country?: string;
+                platform?: "ios" | "android";
+                channel?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Affiliate KPI gate snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            meta: {
+                                /** @enum {string} */
+                                audience: "admin";
+                            };
+                            snapshot: {
+                                exposures: number;
+                                clicks: number;
+                                attributedClicks: number;
+                                complaints: number;
+                                ctrPercent: number;
+                                clickToConversionProxyPercent: number;
+                                complaintRatePercent: number;
+                                retentionGuardProxyPercent: number;
+                            };
+                            checkpoints: {
+                                ctrAtLeast3Percent: boolean;
+                                conversionProxyAtLeast5Percent: boolean;
+                                complaintRateUnder1Percent: boolean;
+                                retentionGuardProxyAtLeast95Percent: boolean;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAffiliateTrends: {
+        parameters: {
+            query?: {
+                granularity?: "day" | "week";
+                country?: string;
+                platform?: "ios" | "android";
+                channel?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Affiliate trends by selected granularity */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            meta: {
+                                /** @enum {string} */
+                                audience: "admin";
+                            };
+                            /** @enum {string} */
+                            granularity: "day" | "week";
+                            buckets: {
+                                /** Format: date-time */
+                                bucketStart: string;
+                                exposures: number;
+                                clicks: number;
+                                attributedClicks: number;
+                                complaints: number;
+                                clickThroughPercent: number;
+                                attributionRatePercent: number;
+                                complaintRatePercent: number;
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAffiliateDashboard: {
+        parameters: {
+            query?: {
+                country?: string;
+                platform?: "ios" | "android";
+                channel?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Affiliate dashboard summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            meta: {
+                                /** @enum {string} */
+                                audience: "admin";
+                            };
+                            totals: {
+                                exposures: number;
+                                clicks: number;
+                                attributedClicks: number;
+                                complaints: number;
+                            };
+                            partners: {
+                                partnerName: string;
+                                offerId: string;
+                                /** @enum {string} */
+                                intentSurface: "maintenance_due" | "service_report_ready" | "cost_anomaly_detected";
+                                category: string;
+                                exposures: number;
+                                clicks: number;
+                                attributedClicks: number;
+                                clickThroughPercent: number;
+                                attributionRatePercent: number;
+                            }[];
+                            trustBySegment: {
+                                segmentKey: string;
+                                exposures: number;
+                                clicks: number;
+                                complaints: number;
+                                complaintRatePercent: number;
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAffiliateMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Affiliate click aggregate metrics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            meta: {
+                                /** @enum {string} */
+                                audience: "admin";
+                            };
+                            totals: {
+                                clicks: number;
+                                attributedClicks: number;
+                            };
+                            byIntentSurface: {
+                                /** @enum {string} */
+                                intentSurface: "maintenance_due" | "service_report_ready" | "cost_anomaly_detected";
+                                clicks: number;
+                                attributedClicks: number;
+                            }[];
+                            byCategory: {
+                                category: string;
+                                clicks: number;
+                                attributedClicks: number;
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getAffiliateImpact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Affiliate impact summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            meta: {
+                                /** @enum {string} */
+                                audience: "admin";
+                            };
+                            totals: {
+                                exposures: number;
+                                clicks: number;
+                                attributedClicks: number;
+                                complaints: number;
+                            };
+                            complaintRatePercent: number;
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    trackAffiliateClick: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    offerId: string;
+                    /** @enum {string} */
+                    intentSurface: "maintenance_due" | "service_report_ready" | "cost_anomaly_detected";
+                    disclosed: boolean;
+                    /** @default false */
+                    consentGranted?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Click tracked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            /** @enum {boolean} */
+                            recorded: true;
+                            attributed: boolean;
+                            /** @enum {boolean} */
+                            disclosureAccepted: true;
+                        };
+                    };
+                };
+            };
+            /** @description Disclosure is required before affiliate click attribution */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    trackAffiliateExposure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    offerId: string;
+                    /** @enum {string} */
+                    intentSurface: "maintenance_due" | "service_report_ready" | "cost_anomaly_detected";
+                    disclosed: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Exposure tracked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            /** @enum {boolean} */
+                            recorded: true;
+                            disclosureAccepted: boolean;
+                        };
+                    };
+                };
+            };
+            /** @description Invalid affiliate exposure payload */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    reportAffiliateComplaint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason: string;
+                    offerId?: string;
+                    /** @enum {string} */
+                    intentSurface?: "maintenance_due" | "service_report_ready" | "cost_anomaly_detected";
+                    disclosureVisible: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Complaint recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: true;
+                        data: {
+                            /** @enum {boolean} */
+                            recorded: true;
+                        };
+                    };
+                };
+            };
+            /** @description Invalid complaint payload */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -2686,7 +3530,14 @@ export interface operations {
     getSubscriptionStatus: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-platform"?: string;
+                "x-country"?: string;
+                "x-channel"?: string;
+                "x-app-version"?: string;
+                "x-session-id"?: string;
+                "x-device-id"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2732,12 +3583,36 @@ export interface operations {
                     };
                 };
             };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
         };
     };
     markSubscriptionMonth2Active: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-platform"?: string;
+                "x-country"?: string;
+                "x-channel"?: string;
+                "x-app-version"?: string;
+                "x-session-id"?: string;
+                "x-device-id"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2761,6 +3636,23 @@ export interface operations {
             };
             /** @description Validation error */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Authentication required */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2830,12 +3722,36 @@ export interface operations {
                     };
                 };
             };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
         };
     };
     startSubscriptionTrial: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-platform"?: string;
+                "x-country"?: string;
+                "x-channel"?: string;
+                "x-app-version"?: string;
+                "x-session-id"?: string;
+                "x-device-id"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2888,12 +3804,70 @@ export interface operations {
                     };
                 };
             };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Trial blocked until paywall eligibility milestone is reached */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Trial unavailable because effective plan is already non-free */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
         };
     };
     cancelSubscription: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-platform"?: string;
+                "x-country"?: string;
+                "x-channel"?: string;
+                "x-app-version"?: string;
+                "x-session-id"?: string;
+                "x-device-id"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2927,6 +3901,23 @@ export interface operations {
             };
             /** @description Validation error */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Authentication required */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2988,6 +3979,23 @@ export interface operations {
                     };
                 };
             };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
         };
     };
     getSubscriptionRetentionSummary: {
@@ -3014,6 +4022,22 @@ export interface operations {
                             month2PayerRetentionPercent: number;
                             refundRatePercent: number;
                             freeTierD30RetentionDeltaPercent: number;
+                            confidence: {
+                                /** @enum {string} */
+                                trialStartRate: "low" | "medium" | "high";
+                                /** @enum {string} */
+                                trialToPaidRate: "low" | "medium" | "high";
+                                /** @enum {string} */
+                                payerLifecycleRates: "low" | "medium" | "high";
+                                /** @enum {string} */
+                                freeTierD30Delta: "low" | "medium" | "high";
+                            };
+                            sampleSize: {
+                                paywallViews: number;
+                                trialStarts: number;
+                                paidConversions: number;
+                                lowSampleThreshold: number;
+                            };
                             notes: string[];
                         };
                     };
@@ -3021,6 +4045,23 @@ export interface operations {
             };
             /** @description Validation error */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Authentication required */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3066,6 +4107,40 @@ export interface operations {
             };
             /** @description Validation error */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Current plan does not allow this endpoint */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3152,6 +4227,40 @@ export interface operations {
             };
             /** @description Validation error */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success: false;
+                        error: {
+                            code: string;
+                            message: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Current plan does not allow this endpoint */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3513,7 +4622,7 @@ export interface operations {
                                 emailVerifiedAt: string | null;
                                 /** Format: date-time */
                                 createdAt: string;
-                                permissions: string[];
+                                permissions: (("document.read" | "document.create" | "document.update" | "vehicles.read" | "vehicles.create" | "vehicles.update" | "vehicles.delete" | "logs.read" | "logs.create" | "logs.update" | "logs.delete" | "reports.read" | "audit.read.self" | "audit.read.all" | "admin.users.manage" | "admin.analytics.read") | "*")[];
                             };
                             tokens: {
                                 accessToken: string;
@@ -3708,7 +4817,7 @@ export interface operations {
                                 emailVerifiedAt: string | null;
                                 /** Format: date-time */
                                 createdAt: string;
-                                permissions: string[];
+                                permissions: (("document.read" | "document.create" | "document.update" | "vehicles.read" | "vehicles.create" | "vehicles.update" | "vehicles.delete" | "logs.read" | "logs.create" | "logs.update" | "logs.delete" | "reports.read" | "audit.read.self" | "audit.read.all" | "admin.users.manage" | "admin.analytics.read") | "*")[];
                             };
                             tokens: {
                                 accessToken: string;
@@ -3833,7 +4942,7 @@ export interface operations {
                                 emailVerifiedAt: string | null;
                                 /** Format: date-time */
                                 createdAt: string;
-                                permissions: string[];
+                                permissions: (("document.read" | "document.create" | "document.update" | "vehicles.read" | "vehicles.create" | "vehicles.update" | "vehicles.delete" | "logs.read" | "logs.create" | "logs.update" | "logs.delete" | "reports.read" | "audit.read.self" | "audit.read.all" | "admin.users.manage" | "admin.analytics.read") | "*")[];
                             };
                             tokens: {
                                 accessToken: string;
@@ -3912,7 +5021,7 @@ export interface operations {
                                 emailVerifiedAt: string | null;
                                 /** Format: date-time */
                                 createdAt: string;
-                                permissions: string[];
+                                permissions: (("document.read" | "document.create" | "document.update" | "vehicles.read" | "vehicles.create" | "vehicles.update" | "vehicles.delete" | "logs.read" | "logs.create" | "logs.update" | "logs.delete" | "reports.read" | "audit.read.self" | "audit.read.all" | "admin.users.manage" | "admin.analytics.read") | "*")[];
                             };
                             tokens: {
                                 accessToken: string;
@@ -3989,7 +5098,7 @@ export interface operations {
                                 emailVerifiedAt: string | null;
                                 /** Format: date-time */
                                 createdAt: string;
-                                permissions: string[];
+                                permissions: (("document.read" | "document.create" | "document.update" | "vehicles.read" | "vehicles.create" | "vehicles.update" | "vehicles.delete" | "logs.read" | "logs.create" | "logs.update" | "logs.delete" | "reports.read" | "audit.read.self" | "audit.read.all" | "admin.users.manage" | "admin.analytics.read") | "*")[];
                             };
                             tokens: {
                                 accessToken: string;
@@ -4147,7 +5256,7 @@ export interface operations {
                             emailVerifiedAt: string | null;
                             /** Format: date-time */
                             createdAt: string;
-                            permissions: string[];
+                            permissions: (("document.read" | "document.create" | "document.update" | "vehicles.read" | "vehicles.create" | "vehicles.update" | "vehicles.delete" | "logs.read" | "logs.create" | "logs.update" | "logs.delete" | "reports.read" | "audit.read.self" | "audit.read.all" | "admin.users.manage" | "admin.analytics.read") | "*")[];
                         };
                     };
                 };

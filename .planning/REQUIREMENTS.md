@@ -63,9 +63,9 @@
 | SUB-02 | Phase 2 | In progress (windows 1-3 baseline/depth implemented) |
 | SUB-03 | Phase 2 | In progress (windows 1-3 baseline/depth implemented) |
 | SUB-04 | Phase 2 | In progress (windows 1-3 baseline/depth implemented) |
-| AFF-01 | Phase 3 | Pending |
-| AFF-02 | Phase 3 | Pending |
-| AFF-03 | Phase 3 | Pending |
+| AFF-01 | Phase 3 | In progress (window 1 intent-mapped offers baseline implemented) |
+| AFF-02 | Phase 3 | In progress (window 1 disclosure + consent-aware click attribution implemented) |
+| AFF-03 | Phase 3 | In progress (windows 2-7 click persistence + aggregate metrics + trust-impact signals + dashboard segmentation + trend buckets + KPI snapshots + phase-exit readiness implemented) |
 | ADS-01 | Phase 4 | Pending |
 | ADS-02 | Phase 4 | Pending |
 

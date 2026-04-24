@@ -2,6 +2,11 @@
   "expo": {
     "name": "AutoCare Mobile",
     "slug": "autocare-mobile",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
     "android": {
       "package": "com.anonymous.autocaremobile"
     }

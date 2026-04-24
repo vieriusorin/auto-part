@@ -1,7 +1,7 @@
 import type { CookieConfig } from '@autocare/config/server'
+import type { Permission, UserRole } from '@autocare/shared'
 import type { RequestHandler } from 'express'
 import { commonPresenter } from '../../../../presenters/common.presenter.js'
-import { permissionsForRole } from '../../application/permissions.js'
 import type { UserRepository } from '../../infrastructure/user-repository.js'
 import type { JwtSigner } from '../../infrastructure/jwt-signer.js'
 
@@ -9,6 +9,7 @@ export type RequireAuthDeps = {
   jwtSigner: JwtSigner
   cookieConfig: CookieConfig
   users: UserRepository
+  permissionsForRole: (role: UserRole) => Permission[]
 }
 
 const extractBearerToken = (header: string | undefined): string | undefined => {
@@ -53,7 +54,7 @@ export const createRequireAuthMiddleware = (deps: RequireAuthDeps): RequestHandl
         organizationPlan: user.organizationPlan,
         planOverride: user.planOverride,
         effectivePlan: user.effectivePlan,
-        permissions: permissionsForRole(user.role),
+        permissions: deps.permissionsForRole(user.role),
         tokenId: claims.jti,
       }
       next()

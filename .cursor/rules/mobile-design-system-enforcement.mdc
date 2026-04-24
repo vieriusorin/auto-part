@@ -1,0 +1,25 @@
+---
+description: Enforce Autocare mobile design system consistency for React Native UI work
+globs: apps/mobile/**/*.{ts,tsx}
+alwaysApply: true
+---
+
+# Mobile Design System Enforcement
+
+When editing mobile UI, apply `.claude/skills/autocare-design-system/SKILL.md`.
+
+## Non-negotiable constraints
+
+- Preserve one clear visual focal point per screen.
+- Keep explicit action hierarchy (primary vs secondary).
+- Use consistent spacing/radius/type rhythm.
+- Prefer tokenized styles and shared UI primitives over inline ad-hoc styling.
+- No hardcoded user-facing strings in JSX; use i18n keys.
+- No hardcoded color literals when token classes exist.
+
+## Review gate before finishing
+
+- Can the screen hierarchy be understood in 3 seconds?
+- Do loading/empty/error states keep the same visual language?
+- Is there any duplicated heading or structural noise?
+- Are related pieces grouped in cards/sections instead of loose text?

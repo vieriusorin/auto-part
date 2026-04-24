@@ -13,7 +13,7 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries }),
 }))
 
-vi.mock('./context.js', () => ({
+vi.mock('./context', () => ({
   useApiClient: () => ({
     GET: getMock,
     POST: postMock,
@@ -21,7 +21,7 @@ vi.mock('./context.js', () => ({
   }),
 }))
 
-import { queryKeys } from '../query-keys.js'
+import { queryKeys } from '../query-keys'
 import {
   useCreateVehicleDocument,
   useCreateVehicleReminder,
@@ -31,7 +31,7 @@ import {
   useVehicleDocuments,
   useVehicleMembers,
   useVehicleReminders,
-} from './hooks.js'
+} from './hooks'
 
 describe('vehicle reminder hooks', () => {
   beforeEach(() => {

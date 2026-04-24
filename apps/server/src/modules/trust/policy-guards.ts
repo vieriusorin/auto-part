@@ -1,3 +1,5 @@
+import { createAuthorizationService } from '../auth/application/authorization-service.js'
+
 type TrustWriteInput = {
   actorRole: 'member' | 'admin' | 'service'
   isLocked: boolean
@@ -9,8 +11,10 @@ type TrustPolicyResult = {
 }
 
 export const assertTrustWriteAllowed = (input: TrustWriteInput): TrustPolicyResult => {
-  if (input.isLocked && input.actorRole !== 'admin' && input.actorRole !== 'service') {
-    return { allowed: false, reasonCode: 'LOCK_OVERRIDE_REQUIRED' }
+  const authorization = createAuthorizationService()
+  const decision = authorization.authorizeTrustWrite(input)
+  return {
+    allowed: decision.allow,
+    reasonCode: decision.reasonCode === 'LOCK_OVERRIDE_REQUIRED' ? 'LOCK_OVERRIDE_REQUIRED' : 'NONE',
   }
-  return { allowed: true, reasonCode: 'NONE' }
 }

@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createAiRouter } from '../../../../modules/ai/interfaces/http/ai-routes.js'
 import { createAnalyticsRouter } from '../../../../modules/analytics/interfaces/http/analytics-routes.js'
+import { createAffiliateRouter } from '../../../../modules/affiliate/interfaces/http/affiliate-routes.js'
 import { createAuditRouter } from '../../../../modules/audit/interfaces/http/audit-routes.js'
 import type { AuthModule } from '../../../../modules/auth/auth-module.js'
 import { createCoreRouter } from '../../../../modules/core/interfaces/http/core-routes.js'
@@ -31,10 +32,14 @@ describe('OpenAPI registry contract', () => {
       db: {} as import('drizzle-orm/node-postgres').NodePgDatabase,
       useCases: {} as never,
       users: {} as never,
+      authorization: {
+        permissionsForRole: () => [],
+      },
     } as unknown as AuthModule
 
     createCoreRouter()
     createAnalyticsRouter()
+    createAffiliateRouter(stubAuthModule)
     createTrustRouter()
     createVehicleRouter(stubAuthModule)
     createAiRouter()
@@ -56,6 +61,17 @@ describe('OpenAPI registry contract', () => {
       'syncClientActions',
       'ingestAnalyticsEvents',
       'getAnalyticsDashboard',
+      'listAffiliateOffers',
+      'getAffiliateMetrics',
+      'getAffiliateImpact',
+      'getAffiliateDashboard',
+      'getAffiliateTrends',
+      'getAffiliateDisclosureAudit',
+      'getAffiliateKpiGates',
+      'getAffiliatePhaseExitReadiness',
+      'trackAffiliateClick',
+      'trackAffiliateExposure',
+      'reportAffiliateComplaint',
       'createConsent',
       'revokeConsent',
       'exportConsentData',
@@ -161,6 +177,40 @@ describe('OpenAPI registry contract', () => {
     expect(trialStartPath).toBeTruthy()
     expect(trialStartPath?.responses?.['403']).toBeTruthy()
     expect(trialStartPath?.responses?.['409']).toBeTruthy()
+  })
+
+  it('documents affiliate offers disclosure label as fixed sponsored copy', () => {
+    const document = buildOpenApiDocument({
+      title: 'Autocare API',
+      version: '0.0.0-test',
+      description: 'test',
+      serverUrl: '/api',
+    })
+
+    const affiliateOffers = document.paths?.['/api/affiliate/offers']?.get
+    expect(affiliateOffers).toBeTruthy()
+
+    const schema = affiliateOffers?.responses?.['200']?.content?.['application/json']?.schema as
+      | {
+          properties?: {
+            data?: {
+              properties?: {
+                items?: {
+                  items?: {
+                    properties?: {
+                      disclosureLabel?: { enum?: unknown[] }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      | undefined
+
+    expect(schema?.properties?.data?.properties?.items?.items?.properties?.disclosureLabel?.enum).toEqual([
+      'Sponsored recommendation',
+    ])
   })
 
   it('uses canonical API error schema for trial-start 401/403/409 responses', () => {
@@ -280,6 +330,73 @@ describe('OpenAPI registry contract', () => {
     expect(spendKpis).toBeTruthy()
     expect(reportGenerate?.responses?.['403']).toBeTruthy()
     expect(spendKpis?.responses?.['403']).toBeTruthy()
+  })
+
+  it('documents retention summary sample-size metadata fields', () => {
+    const document = buildOpenApiDocument({
+      title: 'Autocare API',
+      version: '0.0.0-test',
+      description: 'test',
+      serverUrl: '/api',
+    })
+
+    const retention = document.paths?.['/api/subscription/retention-summary']?.get
+    expect(retention).toBeTruthy()
+
+    const dataSchema = retention?.responses?.['200']?.content?.['application/json']?.schema as
+      | {
+          properties?: {
+            data?: {
+              properties?: {
+                sampleSize?: {
+                  properties?: Record<string, unknown>
+                }
+              }
+            }
+          }
+        }
+      | undefined
+
+    const sampleSizeProps = dataSchema?.properties?.data?.properties?.sampleSize?.properties
+    expect(sampleSizeProps).toBeTruthy()
+    expect(sampleSizeProps).toHaveProperty('paywallViews')
+    expect(sampleSizeProps).toHaveProperty('trialStarts')
+    expect(sampleSizeProps).toHaveProperty('paidConversions')
+    expect(sampleSizeProps).toHaveProperty('lowSampleThreshold')
+  })
+
+  it('documents retention summary confidence tiers', () => {
+    const document = buildOpenApiDocument({
+      title: 'Autocare API',
+      version: '0.0.0-test',
+      description: 'test',
+      serverUrl: '/api',
+    })
+
+    const retention = document.paths?.['/api/subscription/retention-summary']?.get
+    expect(retention).toBeTruthy()
+
+    const dataSchema = retention?.responses?.['200']?.content?.['application/json']?.schema as
+      | {
+          properties?: {
+            data?: {
+              properties?: {
+                confidence?: {
+                  properties?: Record<string, { enum?: unknown[] }>
+                }
+              }
+            }
+          }
+        }
+      | undefined
+
+    const confidenceProps = dataSchema?.properties?.data?.properties?.confidence?.properties
+    expect(confidenceProps).toBeTruthy()
+    expect(confidenceProps).toHaveProperty('trialStartRate')
+    expect(confidenceProps).toHaveProperty('trialToPaidRate')
+    expect(confidenceProps).toHaveProperty('payerLifecycleRates')
+    expect(confidenceProps).toHaveProperty('freeTierD30Delta')
+    expect(confidenceProps?.trialStartRate?.enum).toEqual(['low', 'medium', 'high'])
   })
 
   it('documents 401 auth responses for reports premium endpoints', () => {

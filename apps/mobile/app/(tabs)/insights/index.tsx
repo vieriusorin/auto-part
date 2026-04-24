@@ -6,6 +6,8 @@ import {
 } from '@autocare/api-client/react'
 import { useMemo } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, Text } from 'react-native'
+import { KpiWithConfidence } from '../../components/kpi-with-confidence'
+import { buildSubscriptionKpiItems } from './subscription-kpis'
 
 const InsightsScreen = () => {
   const filters = useMemo(() => {
@@ -39,13 +41,14 @@ const InsightsScreen = () => {
       {retention.isLoading ? <ActivityIndicator /> : null}
       {retention.data ? (
         <>
-          <Text>Trial start rate: {retention.data.trialStartRatePercent.toFixed(1)}%</Text>
-          <Text>Trial to paid: {retention.data.trialToPaidPercent.toFixed(1)}%</Text>
-          <Text>Month-2 payer retention: {retention.data.month2PayerRetentionPercent.toFixed(1)}%</Text>
-          <Text>Refund rate: {retention.data.refundRatePercent.toFixed(1)}%</Text>
-          <Text>
-            Free-tier D30 delta: {retention.data.freeTierD30RetentionDeltaPercent.toFixed(1)}%
-          </Text>
+          {buildSubscriptionKpiItems(retention.data).map((kpi) => (
+            <KpiWithConfidence
+              key={kpi.key}
+              label={kpi.label}
+              value={kpi.value}
+              confidence={kpi.confidence}
+            />
+          ))}
           <Pressable
             onPress={() => markMonth2Active.mutate()}
             disabled={markMonth2Active.isPending}

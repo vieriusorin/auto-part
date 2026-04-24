@@ -12,9 +12,11 @@ import { mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { createAiRouter } from '../src/modules/ai/interfaces/http/ai-routes.js'
 import { createAnalyticsRouter } from '../src/modules/analytics/interfaces/http/analytics-routes.js'
+import { createAffiliateRouter } from '../src/modules/affiliate/interfaces/http/affiliate-routes.js'
 import { createAuditRouter } from '../src/modules/audit/interfaces/http/audit-routes.js'
 import { createBannerRouter } from '../src/modules/banners/interfaces/http/banner-routes.js'
 import type { AuthModule } from '../src/modules/auth/auth-module.js'
+import { createAuthorizationService } from '../src/modules/auth/application/authorization-service.js'
 import { createAuthRouter } from '../src/modules/auth/interfaces/http/auth-routes.js'
 import { createCoreRouter } from '../src/modules/core/interfaces/http/core-routes.js'
 import { createReportRouter } from '../src/modules/reports/interfaces/http/report-routes.js'
@@ -32,6 +34,7 @@ const main = (): void => {
     },
     csrfConfig: { cookieName: 'autocare.csrf', headerName: 'x-csrf-token' },
     db: {} as import('drizzle-orm/node-postgres').NodePgDatabase,
+    authorization: createAuthorizationService(),
     useCases: {} as never,
     users: {} as never,
   } as unknown as AuthModule
@@ -39,6 +42,7 @@ const main = (): void => {
   createCoreRouter()
   createAnalyticsRouter()
   createTrustRouter()
+  createAffiliateRouter(stubAuthModule)
   createVehicleRouter(stubAuthModule)
   createAiRouter()
   createReportRouter(stubAuthModule)

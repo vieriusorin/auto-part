@@ -69,5 +69,17 @@ export const SubscriptionRetentionSummaryResponseDataSchema = z.object({
   month2PayerRetentionPercent: z.number(),
   refundRatePercent: z.number(),
   freeTierD30RetentionDeltaPercent: z.number(),
+  confidence: z.object({
+    trialStartRate: z.enum(['low', 'medium', 'high']),
+    trialToPaidRate: z.enum(['low', 'medium', 'high']),
+    payerLifecycleRates: z.enum(['low', 'medium', 'high']),
+    freeTierD30Delta: z.enum(['low', 'medium', 'high']),
+  }),
+  sampleSize: z.object({
+    paywallViews: z.number().int().nonnegative(),
+    trialStarts: z.number().int().nonnegative(),
+    paidConversions: z.number().int().nonnegative(),
+    lowSampleThreshold: z.number().int().positive(),
+  }),
   notes: z.array(z.string()),
 })

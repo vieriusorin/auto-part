@@ -630,3 +630,319 @@ Implemented in working tree; locally verified.
 - Integration test updates:
   - `apps/server/src/modules/reports/__tests__/subscription-http.integration.test.ts`
   - added org-scope isolation coverage and aligned multi-user expectations to per-org/per-user scoped retention summaries.
+
+---
+
+## Window 32 execution (org-scoped rollup baseline isolation)
+
+### TDD flow
+1. Added/strengthened org-scope integration assertions for free-tier D30 delta and notes behavior.
+2. Removed global rollup input from org-scoped retention endpoint path.
+3. Re-ran report-focused integration/unit suites and server typecheck.
+
+### Implemented
+- Retention endpoint isolation hardening:
+  - `apps/server/src/modules/reports/interfaces/http/report-routes.ts`
+  - `GET /api/subscription/retention-summary` now computes org summary from org-scoped events only and avoids injecting global daily rollups into org responses.
+- Integration assertions:
+  - `apps/server/src/modules/reports/__tests__/subscription-http.integration.test.ts`
+  - org-scope test now asserts:
+    - `freeTierD30RetentionDeltaPercent === 0`
+    - baseline-missing explanatory note is returned for scoped summaries.
+
+---
+
+## Window 34 execution (retention event deduplication integrity)
+
+### TDD flow
+1. Added unit coverage to ensure duplicate analytics events do not inflate retention KPIs.
+2. Implemented event-level deduplication in retention summary builder.
+3. Re-ran report retention/unit + integration suites and server typecheck.
+
+### Implemented
+- Retention metric integrity hardening:
+  - `apps/server/src/modules/reports/application/subscription-retention-summary.ts`
+  - summary computation now deduplicates input events by `eventId` before counting paywall/trial/conversion/month2/refund metrics.
+- Unit test coverage:
+  - `apps/server/src/modules/reports/__tests__/subscription-retention-summary.test.ts`
+  - added duplicate-event scenario validating stable percentages under repeated event ingestion.
+
+---
+
+## Window 36 execution (mixed-stream deduplication stability coverage)
+
+### TDD flow
+1. Added unit coverage for mixed unique+duplicate event streams across all subscription lifecycle event types.
+2. Verified retention ratios remain stable and mathematically correct after deduplication.
+3. Re-ran retention/unit + subscription integration suites and server typecheck.
+
+### Implemented
+- Unit test hardening:
+  - `apps/server/src/modules/reports/__tests__/subscription-retention-summary.test.ts`
+  - added scenario combining:
+    - unique paywall/trial/conversion/month2/refund events
+    - duplicate replays of each event type
+  - asserted final percentages:
+    - `trialStartRatePercent = 60`
+    - `trialToPaidPercent = 66.7`
+    - `month2PayerRetentionPercent = 50`
+    - `refundRatePercent = 50`
+
+---
+
+## Window 38 execution (low-sample interpretability notes)
+
+### TDD flow
+1. Added unit coverage requiring low-sample warning notes for subscription KPI denominators.
+2. Implemented sample-size note generation in retention summary builder.
+3. Re-ran retention/unit + integration suites and server typecheck.
+
+### Implemented
+- Retention interpretability guardrails:
+  - `apps/server/src/modules/reports/application/subscription-retention-summary.ts`
+  - added notes when denominator sample sizes are below 10 for:
+    - paywall views (`trialStartRatePercent`)
+    - trial starts (`trialToPaidPercent`)
+    - paid conversions (`month2PayerRetentionPercent`, `refundRatePercent`)
+- Unit coverage:
+  - `apps/server/src/modules/reports/__tests__/subscription-retention-summary.test.ts`
+  - added explicit low-sample notes assertions.
+
+---
+
+## Window 39 execution (structured sample-size metadata)
+
+### TDD flow
+1. Extended retention summary unit tests to require structured denominator metadata.
+2. Implemented `sampleSize` payload in retention summary builder.
+3. Extended integration + OpenAPI contract tests for metadata visibility.
+4. Re-ran focused reports/openapi suites and server typecheck.
+
+### Implemented
+- Shared API contract:
+  - `packages/shared/src/contracts/subscription.ts`
+  - `SubscriptionRetentionSummaryResponseDataSchema` now includes:
+    - `sampleSize.paywallViews`
+    - `sampleSize.trialStarts`
+    - `sampleSize.paidConversions`
+    - `sampleSize.lowSampleThreshold`
+- Runtime summary output:
+  - `apps/server/src/modules/reports/application/subscription-retention-summary.ts`
+  - added deterministic `sampleSize` object derived from deduplicated event stream counts.
+- Tests:
+  - `apps/server/src/modules/reports/__tests__/subscription-retention-summary.test.ts`
+  - `apps/server/src/modules/reports/__tests__/subscription-http.integration.test.ts`
+  - `apps/server/src/interfaces/http/openapi/__tests__/registry.contract.test.ts`
+
+---
+
+## Window 40 execution (confidence tier metadata)
+
+### TDD flow
+1. Extended retention summary unit tests to require structured confidence tiers.
+2. Implemented deterministic confidence derivation from denominator sizes.
+3. Added integration + OpenAPI contract assertions for confidence shape.
+4. Re-ran focused reports/openapi suites and server typecheck.
+
+### Implemented
+- Shared API contract:
+  - `packages/shared/src/contracts/subscription.ts`
+  - added `confidence` object:
+    - `trialStartRate`
+    - `trialToPaidRate`
+    - `payerLifecycleRates`
+    - `freeTierD30Delta`
+  - values are enum tiers: `low | medium | high`
+- Runtime summary output:
+  - `apps/server/src/modules/reports/application/subscription-retention-summary.ts`
+  - added deterministic tiering helpers:
+    - denominator confidence thresholds (`<10 low`, `<30 medium`, otherwise `high`)
+    - free-tier baseline confidence thresholds (`<100 low`, `<500 medium`, otherwise `high`)
+- Tests:
+  - `apps/server/src/modules/reports/__tests__/subscription-retention-summary.test.ts`
+  - `apps/server/src/modules/reports/__tests__/subscription-http.integration.test.ts`
+  - `apps/server/src/interfaces/http/openapi/__tests__/registry.contract.test.ts`
+
+---
+
+## Window 41 execution (mobile confidence badge wiring)
+
+### TDD flow
+1. Updated mobile insights subscription health rendering to consume confidence metadata from retention summary.
+2. Regenerated OpenAPI + api-client types so mobile receives up-to-date retention summary typing.
+3. Re-ran api-client and mobile typecheck to verify end-to-end compatibility.
+
+### Implemented
+- Mobile insights UI:
+  - `apps/mobile/app/(tabs)/insights/index.tsx`
+  - added confidence badges for:
+    - trial start rate
+    - trial-to-paid rate
+    - payer lifecycle rates (month-2 retention + refund rate)
+    - free-tier D30 delta
+  - badge style/label mapping:
+    - `high` -> green
+    - `medium` -> amber
+    - `low` -> red
+- Client type sync:
+  - `apps/server/openapi.json`
+  - `apps/server/openapi/subscription.json`
+  - `packages/api-client/src/types.gen.ts`
+
+---
+
+## Window 42 execution (insights KPI badge component refactor)
+
+### TDD flow
+1. Refactored repeated KPI + confidence badge markup into a reusable local component.
+2. Replaced all subscription health KPI rows to consume the shared component.
+3. Re-ran mobile typecheck to verify UI refactor safety.
+
+### Implemented
+- Mobile insights composition cleanup:
+  - `apps/mobile/app/(tabs)/insights/index.tsx`
+  - added local `KpiWithConfidence` component (`label`, `value`, `confidence`)
+  - consolidated repeated badge style/label wiring into one render path
+  - replaced five duplicated KPI sections with component instances.
+
+---
+
+## Window 43 execution (shared mobile KPI confidence component)
+
+### TDD flow
+1. Extracted local insights KPI confidence renderer into a shared mobile component file.
+2. Updated insights screen to import and consume the extracted component.
+3. Re-ran mobile typecheck and lint diagnostics.
+
+### Implemented
+- New shared component:
+  - `apps/mobile/app/components/kpi-with-confidence.tsx`
+  - exports:
+    - `ConfidenceTier`
+    - `KpiWithConfidence`
+  - retains existing confidence tier labels and badge color semantics.
+- Insights screen integration:
+  - `apps/mobile/app/(tabs)/insights/index.tsx`
+  - removed local confidence helpers/component and imported shared component instead.
+
+---
+
+## Window 44 execution (shared KPI helper test coverage)
+
+### TDD flow
+1. Added focused test coverage for shared KPI label/value formatting and confidence label mapping.
+2. Encountered mobile Vitest parse failure from direct `react-native` import path in component test context.
+3. Extracted pure helpers into a non-RN module and rewired component + tests to consume helpers.
+4. Re-ran focused mobile test, typecheck, and lint diagnostics.
+
+### Implemented
+- New helper module:
+  - `apps/mobile/app/components/kpi-with-confidence.helpers.ts`
+  - exports:
+    - `ConfidenceTier`
+    - `confidenceBadgeStyle`
+    - `formatKpiLabel`
+    - `getConfidenceLabel`
+- Shared component update:
+  - `apps/mobile/app/components/kpi-with-confidence.tsx`
+  - now consumes helper exports for label and confidence mapping.
+- New test coverage:
+  - `apps/mobile/app/components/kpi-with-confidence.test.ts`
+  - verifies:
+    - one-decimal KPI percentage label formatting
+    - `low|medium|high` confidence label mapping.
+
+---
+
+## Window 45 execution (insights KPI composition mapping coverage)
+
+### TDD flow
+1. Added a dedicated insights KPI composition builder for subscription retention rendering.
+2. Rewired insights screen to render KPI rows via mapped builder output.
+3. Added focused unit test asserting all five KPI rows/labels/keys and confidence mapping.
+4. Re-ran focused mobile tests + typecheck + lint diagnostics.
+
+### Implemented
+- New composition builder:
+  - `apps/mobile/app/(tabs)/insights/subscription-kpis.ts`
+  - exports:
+    - `buildSubscriptionKpiItems(...)`
+    - `SubscriptionRetentionSummaryForUi`
+    - `SubscriptionKpiItem`
+- New test coverage:
+  - `apps/mobile/app/(tabs)/insights/subscription-kpis.test.ts`
+  - validates:
+    - exactly 5 KPI rows
+    - expected label and key order
+    - confidence tier propagation semantics.
+- Insights screen integration:
+  - `apps/mobile/app/(tabs)/insights/index.tsx`
+  - replaced hard-coded KPI list with `buildSubscriptionKpiItems(retention.data).map(...)`.
+
+---
+
+## Window 46 execution (negative delta preservation guard)
+
+### TDD flow
+1. Added a guard test for negative free-tier delta propagation in KPI composition builder output.
+2. Re-ran focused mobile KPI tests and typecheck.
+3. Re-checked lint diagnostics for updated test file.
+
+### Implemented
+- Additional KPI composition guard coverage:
+  - `apps/mobile/app/(tabs)/insights/subscription-kpis.test.ts`
+  - added assertion ensuring `freeTierD30RetentionDeltaPercent` negative values are preserved exactly (no normalization/absolute/rounding side effects) when mapped to UI row values.
+
+---
+
+## Window 47 execution (zero-value KPI retention guard)
+
+### TDD flow
+1. Added a guard test to assert KPI composition keeps all rows when all values are zero.
+2. Re-ran focused mobile KPI tests and mobile typecheck.
+3. Re-ran lint diagnostics for the updated test file.
+
+### Implemented
+- Additional KPI composition guard coverage:
+  - `apps/mobile/app/(tabs)/insights/subscription-kpis.test.ts`
+  - added zero-value scenario asserting:
+    - all 5 KPI rows are still present
+    - each row value remains `0`
+    - KPI key ordering remains stable.
+
+---
+
+## Window 48 execution (confidence functionality guard expansion)
+
+### TDD flow
+1. Added a KPI composition guard test ensuring confidence tiers are always mapped for every row.
+2. Added helper-level badge-style assertions to verify deterministic confidence color mapping.
+3. Re-ran focused mobile tests, typecheck, and lint diagnostics.
+
+### Implemented
+- Insights KPI composition guard expansion:
+  - `apps/mobile/app/(tabs)/insights/subscription-kpis.test.ts`
+  - added scenario asserting confidence values are always in `low|medium|high` and correctly propagated per KPI key.
+- Helper functionality coverage:
+  - `apps/mobile/app/components/kpi-with-confidence.test.ts`
+  - added deterministic color mapping assertions for each confidence tier.
+
+---
+
+## Window 49 execution (runtime confidence payload fail-fast)
+
+### TDD flow
+1. Added failing tests for malformed/missing confidence tier payloads in KPI composition.
+2. Implemented runtime confidence payload assertion in composition builder.
+3. Resolved TypeScript assertion-signature compatibility by switching to function declaration.
+4. Re-ran focused mobile tests, typecheck, and lint diagnostics.
+
+### Implemented
+- Runtime guard in KPI composition:
+  - `apps/mobile/app/(tabs)/insights/subscription-kpis.ts`
+  - added `assertConfidencePayload(...)` to fail fast with `Invalid retention confidence payload` when confidence tiers are missing or unsupported.
+- Guard coverage:
+  - `apps/mobile/app/(tabs)/insights/subscription-kpis.test.ts`
+  - added test cases for:
+    - unsupported confidence value
+    - missing required confidence tier.
